@@ -3,14 +3,6 @@ import { Zap, ChevronRight } from "lucide-react";
 import { useProjectStore } from "../store/projectStore";
 import { buildBlueprint } from "../lib/api";
 
-const EXAMPLES = [
-  "Um sistema operacional para um assistente de IA dedicado a análise financeira",
-  "Manual de identidade e cultura para uma startup de tecnologia",
-  "Protocolo operacional para uma equipa de desenvolvimento de software",
-  "Sistema de regras e identidade para um personagem de ficção científica",
-  "Guia de estilo e voz editorial para uma publicação de tecnologia",
-];
-
 export function ObjectiveInput() {
   const { objective, setObjective, architecture, setSession, setLoading, setError, isLoading, setStep } =
     useProjectStore();
@@ -63,8 +55,9 @@ export function ObjectiveInput() {
         <textarea
           value={localObjective}
           onChange={(e) => setLocalObjective(e.target.value)}
-          placeholder="Ex: Um sistema operacional para um assistente de IA especializado em análise de código, com identidade própria, regras de resposta, metodologia de debugging e protocolos de qualidade..."
-          rows={5}
+          placeholder="Descreve o documento que queres gerar..."
+          rows={6}
+          autoFocus
           className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-3 text-sm text-zinc-200
                      placeholder-zinc-600 focus:outline-none focus:border-violet-500 resize-none"
           onKeyDown={(e) => {
@@ -72,22 +65,6 @@ export function ObjectiveInput() {
           }}
         />
         <p className="text-xs text-zinc-600">Ctrl+Enter para gerar</p>
-      </div>
-
-      <div className="space-y-2">
-        <p className="text-xs text-zinc-500 uppercase tracking-wider">Exemplos</p>
-        <div className="space-y-1.5">
-          {EXAMPLES.map((ex, i) => (
-            <button
-              key={i}
-              onClick={() => setLocalObjective(ex)}
-              className="w-full text-left text-xs text-zinc-400 hover:text-zinc-200 bg-zinc-900 hover:bg-zinc-800
-                         border border-zinc-800 hover:border-zinc-600 rounded px-3 py-2 transition-all"
-            >
-              {ex}
-            </button>
-          ))}
-        </div>
       </div>
 
       <div className="flex gap-3">
