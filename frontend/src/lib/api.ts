@@ -57,9 +57,10 @@ export function streamChapter(
 ): () => void {
   const { onToken, onDone, onError } = callbacks;
 
-  const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
+  // Use BASE (strips /api suffix) so the URL is always correct in production
+  const apiRoot = BASE.replace(/\/api$/, "");
   const es = new EventSource(
-    `${apiUrl}/api/session/${sid}/write/${chapterId}`
+    `${apiRoot}/api/session/${sid}/write/${chapterId}`
   );
 
   es.onmessage = (e) => {
