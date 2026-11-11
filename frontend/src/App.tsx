@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useProjectStore } from "./store/projectStore";
 import { UploadZone } from "./components/UploadZone";
 import { ObjectiveInput } from "./components/ObjectiveInput";
@@ -6,7 +7,11 @@ import { ChapterEditor } from "./components/ChapterEditor";
 import { ValidatorPanel } from "./components/ValidatorPanel";
 import { ExportPanel } from "./components/ExportPanel";
 import { ContextSidebar } from "./components/ContextSidebar";
-import { Zap, RotateCcw, AlertCircle, X } from "lucide-react";
+import { SettingsPanel } from "./components/SettingsPanel";
+import {
+  Zap, RotateCcw, AlertCircle, X, ChevronLeft, ChevronRight, Settings,
+} from "lucide-react";
+import { STEP_ORDER } from "./store/projectStore";
 
 const STEPS = [
   { id: "upload", label: "Referência" },
@@ -19,19 +24,22 @@ const STEPS = [
 
 type StepId = (typeof STEPS)[number]["id"];
 
-const stepOrder: StepId[] = ["upload", "objective", "blueprint", "writing", "validate", "export"];
-
-function StepBar({ current }: { current: StepId }) {
-  const currentIdx = stepOrder.indexOf(current);
+function StepBar({ current, onStepClick }: { current: StepId; onStepClick: (id: StepId) => void }) {
+  const currentIdx = STEP_ORDER.indexOf(current);
   return (
     <div className="flex items-center gap-0">
       {STEPS.map((step, i) => {
         const done = i < currentIdx;
         const active = step.id === current;
+        // Allow clicking only on done steps (going back)
+        const clickable = done;
         return (
           <div key={step.id} className="flex items-center">
-            <div className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors
-              ${active ? "text-violet-300 bg-violet-500/10" : done ? "text-zinc-400" : "text-zinc-700"}`}
+            <button
+              onClick={() => clickable && onStepClick(step.id)}
+              disabled={!clickable}
+              className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors
+                ${active ? "text-violet-300 bg-violet-500/10" : done ? "text-zinc-400 hover:text-zinc-200 cursor-pointer" : "text-zinc-700 cursor-default"}`}
             >
               <span className={`w-4 h-4 rounded-full text-[10px] flex items-center justify-center font-bold
                 ${active ? "bg-violet-500 text-white" : done ? "bg-zinc-700 text-zinc-400" : "bg-zinc-800 text-zinc-700"}`}
@@ -39,7 +47,7 @@ function StepBar({ current }: { current: StepId }) {
                 {done ? "✓" : i + 1}
               </span>
               {step.label}
-            </div>
+            </button>
             {i < STEPS.length - 1 && (
               <div className={`h-px w-4 ${done ? "bg-zinc-600" : "bg-zinc-800"}`} />
             )}
@@ -51,7 +59,13 @@ function StepBar({ current }: { current: StepId }) {
 }
 
 export default function App() {
-  const { step, error, isLoading, loadingMessage, reset, setError } = useProjectStore();
+  const {
+    step, error, isLoading, loadingMessage,
+    reset, setError, setStep,
+    goBack, goForward, canGoBack, canGoForward,
+  } = useProjectStore();
+
+  const [showSettings, setShowSettings] = useState(false);
 
   const renderMain = () => {
     switch (step) {
@@ -72,21 +86,57 @@ export default function App() {
       {/* topbar */}
       <header className="border-b border-zinc-800 bg-zinc-950/80 backdrop-blur sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 h-12 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Zap size={18} className="text-violet-400" />
-            <span className="font-bold text-zinc-100 tracking-tight">PROJECT FORGE</span>
-            <span className="text-xs text-zinc-700 ml-1">v0.1</span>
+          {/* left: logo + back/forward */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Zap size={18} className="text-violet-400" />
+              <span className="font-bold text-zinc-100 tracking-tight">PROJECT FORGE</span>
+              <span className="text-xs text-zinc-700 ml-1">v0.1</span>
+            </div>
+            {/* back / forward nav */}
+            <div className="flex items-center gap-1 ml-2">
+              <button
+                onClick={goBack}
+                disabled={!canGoBack()}
+                title="Passo anterior"
+                className="w-6 h-6 flex items-center justify-center rounded
+                           text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800
+                           disabled:opacity-30 disabled:cursor-default transition-colors"
+              >
+                <ChevronLeft size={14} />
+              </button>
+              <button
+                onClick={goForward}
+                disabled={!canGoForward()}
+                title="Próximo passo"
+                className="w-6 h-6 flex items-center justify-center rounded
+                           text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800
+                           disabled:opacity-30 disabled:cursor-default transition-colors"
+              >
+                <ChevronRight size={14} />
+              </button>
+            </div>
           </div>
 
-          <StepBar current={step} />
+          <StepBar current={step as StepId} onStepClick={(id) => setStep(id)} />
 
-          <button
-            onClick={() => { if (confirm("Recomeçar? Perderás todo o progresso.")) reset(); }}
-            className="flex items-center gap-1.5 text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
-          >
-            <RotateCcw size={12} />
-            Reset
-          </button>
+          {/* right: settings + reset */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowSettings(true)}
+              title="Definições"
+              className="flex items-center gap-1.5 text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
+            >
+              <Settings size={14} />
+            </button>
+            <button
+              onClick={() => { if (confirm("Recomeçar? Perderás todo o progresso.")) reset(); }}
+              className="flex items-center gap-1.5 text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
+            >
+              <RotateCcw size={12} />
+              Reset
+            </button>
+          </div>
         </div>
       </header>
 
@@ -112,6 +162,9 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* settings panel overlay */}
+      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
 
       {/* main layout */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-6">

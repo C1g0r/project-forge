@@ -73,14 +73,22 @@ export function ValidatorPanel() {
   const [ran, setRan] = useState(!!validationReport);
 
   const handleValidate = async () => {
-    if (!sessionId) return;
+    if (!sessionId) {
+      setError("Sessão não encontrada. Volta ao passo anterior.");
+      return;
+    }
+    setError(null);
     setLoading(true, "A validar documento...");
     try {
       const report = await validateDocument(sessionId);
+      if (!report || typeof report.score === "undefined") {
+        throw new Error("Resposta inválida do servidor.");
+      }
       setValidationReport(report);
       setRan(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro na validação");
+      setRan(false);
     } finally {
       setLoading(false);
     }

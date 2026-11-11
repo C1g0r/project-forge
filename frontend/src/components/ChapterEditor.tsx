@@ -81,7 +81,7 @@ function ChapterCard({
 }
 
 export function ChapterEditor() {
-  const { blueprint, sessionId, updateChapter, setStep, setLoading, setError } = useProjectStore();
+  const { blueprint, sessionId, updateChapter, setStep, setLoading, setError, saveChapterDraft } = useProjectStore();
   const [activeChapterId, setActiveChapterId] = useState<string | null>(null);
   const [streamingContent, setStreamingContent] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -122,6 +122,7 @@ export function ChapterEditor() {
       },
       onDone: () => {
         updateChapter(chapterId, { status: "done", content: accumulated });
+        saveChapterDraft(chapterId, accumulated);
         setIsStreaming(false);
         cleanupRef.current = null;
       },
@@ -165,6 +166,7 @@ export function ChapterEditor() {
           },
           onDone: () => {
             updateChapter(ch.id, { status: "done", content: accumulated });
+            saveChapterDraft(ch.id, accumulated);
             setIsStreaming(false);
             cleanupRef.current = null;
             resolve();

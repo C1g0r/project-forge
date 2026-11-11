@@ -89,7 +89,9 @@ export async function validateDocument(sid: string) {
     method: "POST",
   });
   if (!res.ok) throw new Error((await res.json()).error);
-  return res.json();
+  const data = await res.json();
+  // backend wraps report in { report: {...} }
+  return data.report ?? data;
 }
 
 export function exportMarkdownUrl(sid: string): string {
