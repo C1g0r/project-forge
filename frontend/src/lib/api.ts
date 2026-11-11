@@ -1,4 +1,4 @@
-const BASE = "http://localhost:3001/api";
+const BASE = `${import.meta.env.VITE_API_URL ?? "http://localhost:3001"}/api`;
 
 export async function analyzeDocument(content: string) {
   const res = await fetch(`${BASE}/analyze`, {
@@ -56,8 +56,9 @@ export function streamChapter(
 ): () => void {
   const { onToken, onDone, onError } = callbacks;
 
+  const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
   const es = new EventSource(
-    `http://localhost:3001/api/session/${sid}/write/${chapterId}`
+    `${apiUrl}/api/session/${sid}/write/${chapterId}`
   );
 
   es.onmessage = (e) => {

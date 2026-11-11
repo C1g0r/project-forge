@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: project-forge-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node --experimental-strip-types src/server.ts
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false          # define manualmente no dashboard do Render
+      - key: PORT
+        value: 3001
+      - key: ALLOWED_ORIGINS
+        sync: false          # define com o URL do Netlify depois do deploy
