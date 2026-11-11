@@ -1,0 +1,12 @@
+{
+  "name": "project-forge",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "node --experimental-strip-types backend/src/server.ts",
+    "build": "cd backend && npm install"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
