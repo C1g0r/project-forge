@@ -5,7 +5,7 @@
 
 [build.environment]
   NODE_VERSION = "20"
-  VITE_API_URL = "https://project-forge-backend.onrender.com"
+  VITE_API_URL = "https://project-forge-backend-2knl.onrender.com"
 
 [[redirects]]
   from   = "/*"
