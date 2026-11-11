@@ -28,14 +28,22 @@ function ScoreRing({ score }: { score: number }) {
   );
 }
 
+type IssueItem = string | { description?: string; text?: string; message?: string };
+
 function IssueList({ title, items, icon, color }: {
   title: string;
-  items: string[];
+  items: IssueItem[];
   icon: React.ReactNode;
   color: string;
 }) {
   const [open, setOpen] = useState(true);
   if (!items.length) return null;
+
+  const getText = (item: IssueItem): string => {
+    if (typeof item === "string") return item;
+    return item.description ?? item.text ?? item.message ?? JSON.stringify(item);
+  };
+
   return (
     <div className="border border-zinc-800 rounded-lg overflow-hidden">
       <button
@@ -51,7 +59,7 @@ function IssueList({ title, items, icon, color }: {
         <ul className="border-t border-zinc-800 divide-y divide-zinc-800/50">
           {items.map((item, i) => (
             <li key={i} className="px-4 py-2.5 text-xs text-zinc-400 leading-relaxed">
-              {item}
+              {getText(item)}
             </li>
           ))}
         </ul>

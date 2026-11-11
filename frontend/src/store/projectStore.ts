@@ -146,7 +146,7 @@ export const useProjectStore = create<ProjectState>()(
     }),
     {
       name: "forge-project",
-      partializer: (state) => ({
+      partialize: (state) => ({
         step: state.step,
         referenceText: state.referenceText,
         objective: state.objective,
