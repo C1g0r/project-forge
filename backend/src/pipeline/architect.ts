@@ -33,7 +33,7 @@ export interface GlobalRules {
 
 export async function buildBlueprint(
   objective: string,
-  referenceArchitecture: DocumentArchitecture
+  referenceArchitecture: DocumentArchitecture | null
 ): Promise<DocumentBlueprint> {
   const response = await client.messages.create({
     model: "claude-sonnet-4-6",

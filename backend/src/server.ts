@@ -49,8 +49,8 @@ app.post("/api/analyze", async (req, res) => {
 app.post("/api/architect", async (req, res) => {
   try {
     const { objective, architecture } = req.body;
-    if (!objective || !architecture) {
-      res.status(400).json({ error: "Falta objectivo ou arquitectura." });
+    if (!objective) {
+      res.status(400).json({ error: "Falta objectivo." });
       return;
     }
     const blueprint = await buildBlueprint(objective, architecture);

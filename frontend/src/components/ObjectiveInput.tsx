@@ -55,7 +55,7 @@ export function ObjectiveInput() {
         <textarea
           value={localObjective}
           onChange={(e) => setLocalObjective(e.target.value)}
-          placeholder="Descreve o documento que queres gerar..."
+          placeholder="Descreve livremente o documento que queres gerar..."
           rows={6}
           autoFocus
           className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-3 text-sm text-zinc-200
