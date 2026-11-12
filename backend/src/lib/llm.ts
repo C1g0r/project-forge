@@ -16,4 +16,6 @@ export const llm = new OpenAI({
 export const MODEL = process.env.GROQ_MODEL ?? "openai/gpt-oss-120b";
 
 // Modelo leve para analyze — mais rápido, menos tokens
-export const MODEL_FAST = process.env.GROQ_MODEL_FAST ?? "openai/gpt-oss-20b";
+// gpt-oss-20b is faster but may not support all features (e.g. json_object)
+// Using same model as MODEL for reliability
+export const MODEL_FAST = process.env.GROQ_MODEL_FAST ?? "openai/gpt-oss-120b";

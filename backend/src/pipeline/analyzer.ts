@@ -30,7 +30,7 @@ export async function analyzeDocument(
     model: MODEL_FAST,
     max_tokens: 2000,
     temperature: 0.3,
-    response_format: { type: "json_object" },
+    // response_format json_object removed — not supported by all Groq models
     messages: [
       {
         role: "system",

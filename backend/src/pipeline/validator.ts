@@ -29,7 +29,7 @@ export async function validateDocument(
   const response = await llm.chat.completions.create({
     model: MODEL,
     max_tokens: 2000,
-    response_format: { type: "json_object" },
+    // response_format json_object removed — not supported by all Groq models
     messages: [
       {
         role: "system",
