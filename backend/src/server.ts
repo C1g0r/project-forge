@@ -9,14 +9,24 @@ import { exportToMarkdown } from "./export/markdown.ts";
 import type { DocumentBlueprint, Chapter } from "./pipeline/architect.ts";
 
 const app = express();
-const defaultOrigins = [
-  "http://localhost:5173",
-  "https://project-forge-sandy.vercel.app",
-];
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",").map((o) => o.trim())
-  : defaultOrigins;
-app.use(cors({ origin: allowedOrigins }));
+  : [
+      "http://localhost:5173",
+      "http://localhost:4173",
+      "https://project-forge-sandy.vercel.app",
+    ];
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // permitir requests sem origin (curl, Postman, server-to-server)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      callback(new Error(`CORS bloqueado: ${origin}`));
+    },
+    credentials: true,
+  })
+);
 app.use(express.json({ limit: "10mb" }));
 
 // sessões em memória (uso pessoal, sem DB)
