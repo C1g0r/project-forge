@@ -58,18 +58,36 @@ WRITING RULES:
 
   const userMessage = `Write the section: "${chapter.title}"\nPurpose of this section: ${chapter.intent}`;
 
+  const maxTokens = Math.min(targetLength * 4, 2000);
+  const messages: { role: "system" | "user"; content: string }[] = [
+    { role: "system", content: systemPrompt },
+    { role: "user", content: userMessage },
+  ];
+
+  // retry helper — 429 rate limit gets one retry after 8s
+  async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
+    try {
+      return await fn();
+    } catch (err: unknown) {
+      const e = err as { status?: number; message?: string };
+      if (e?.status === 429) {
+        await new Promise((r) => setTimeout(r, 8000));
+        return await fn();
+      }
+      throw err;
+    }
+  }
+
   if (onToken) {
-    // streaming mode
     let fullText = "";
-    const stream = await llm.chat.completions.create({
-      model: MODEL,
-      max_tokens: Math.min(targetLength * 6, 4000),
-      stream: true,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userMessage },
-      ],
-    });
+    const stream = await withRetry(() =>
+      llm.chat.completions.create({
+        model: MODEL,
+        max_tokens: maxTokens,
+        stream: true,
+        messages,
+      })
+    );
 
     for await (const chunk of stream) {
       const delta = chunk.choices[0]?.delta?.content ?? "";
@@ -81,15 +99,13 @@ WRITING RULES:
 
     return fullText;
   } else {
-    // non-streaming
-    const response = await llm.chat.completions.create({
-      model: MODEL,
-      max_tokens: Math.min(targetLength * 6, 4000),
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userMessage },
-      ],
-    });
+    const response = await withRetry(() =>
+      llm.chat.completions.create({
+        model: MODEL,
+        max_tokens: maxTokens,
+        messages,
+      })
+    );
 
     return response.choices[0].message.content ?? "";
   }
