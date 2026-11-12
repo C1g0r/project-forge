@@ -30,6 +30,7 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
       "http://localhost:4173",
       "https://project-forge-sandy.vercel.app",
       "https://project-forge-two.vercel.app",
+      "https://project-forge-backend-2knl.onrender.com",
     ];
 app.use(
   cors({
