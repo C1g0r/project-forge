@@ -1,12 +1,13 @@
 import { useState, useMemo } from "react";
-import { Download, FileText, Copy, Check, ExternalLink } from "lucide-react";
+import { Download, FileText, Copy, Check, ShieldCheck } from "lucide-react";
 import { useProjectStore } from "../store/projectStore";
-import { exportMarkdownUrl } from "../lib/api";
+import { exportMarkdownUrl, exportValidationUrl } from "../lib/api";
 
 export function ExportPanel() {
   const { blueprint, sessionId, validationReport, setStep } = useProjectStore();
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [downloadingValidation, setDownloadingValidation] = useState(false);
 
   if (!blueprint || !sessionId) return null;
 
@@ -71,6 +72,24 @@ export function ExportPanel() {
       URL.revokeObjectURL(a.href);
     } finally {
       setDownloading(false);
+    }
+  };
+
+  const handleDownloadValidation = async () => {
+    if (!sessionId) return;
+    setDownloadingValidation(true);
+    try {
+      const url = exportValidationUrl(sessionId);
+      const res = await fetch(url);
+      const text = await res.text();
+      const blob = new Blob([text], { type: "text/markdown" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `${blueprint!.title.replace(/\s+/g, "_")}_validation.md`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } finally {
+      setDownloadingValidation(false);
     }
   };
 
@@ -141,6 +160,33 @@ export function ExportPanel() {
           </div>
           <Download size={16} className={`text-zinc-600 group-hover:text-violet-400 transition-colors shrink-0 ${downloading ? "animate-bounce" : ""}`} />
         </button>
+
+        {validationReport && (
+          <button
+            onClick={handleDownloadValidation}
+            disabled={downloadingValidation}
+            className="w-full flex items-center gap-3 p-3 sm:p-4 bg-zinc-900 border border-zinc-700
+                       hover:border-emerald-500 active:border-emerald-600 rounded-xl transition-colors group"
+          >
+            <div className="w-10 h-10 bg-zinc-800 group-hover:bg-emerald-500/20 rounded-xl
+                            flex items-center justify-center transition-colors shrink-0">
+              <ShieldCheck size={20} className="text-zinc-400 group-hover:text-emerald-400" />
+            </div>
+            <div className="flex-1 text-left min-w-0">
+              <p className="text-sm font-medium text-zinc-200">Relatório de Validação (.md)</p>
+              <p className="text-xs text-zinc-600">Score, contradições, lacunas e sugestões</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className={`text-xs font-bold px-2 py-0.5 rounded
+                ${validationReport.score >= 80 ? "text-emerald-400 bg-emerald-500/10"
+                  : validationReport.score >= 60 ? "text-yellow-400 bg-yellow-500/10"
+                  : "text-red-400 bg-red-500/10"}`}>
+                {validationReport.score}/100
+              </span>
+              <Download size={16} className={`text-zinc-600 group-hover:text-emerald-400 transition-colors ${downloadingValidation ? "animate-bounce" : ""}`} />
+            </div>
+          </button>
+        )}
 
         <button
           onClick={handleCopy}

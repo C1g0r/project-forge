@@ -111,3 +111,7 @@ export async function validateDocument(sid: string) {
 export function exportMarkdownUrl(sid: string): string {
   return `${BASE}/session/${sid}/export/markdown`;
 }
+
+export function exportValidationUrl(sid: string): string {
+  return `${BASE}/session/${sid}/export/validation`;
+}

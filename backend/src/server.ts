@@ -7,7 +7,9 @@ import { analyzeDocument } from "./pipeline/analyzer.ts";
 import { buildBlueprint } from "./pipeline/architect.ts";
 import { writeChapter } from "./pipeline/writer.ts";
 import { validateDocument } from "./pipeline/validator.ts";
+import type { ValidationReport } from "./pipeline/validator.ts";
 import { exportToMarkdown } from "./export/markdown.ts";
+import { exportValidationReport } from "./export/validation.ts";
 import type { DocumentBlueprint, Chapter } from "./pipeline/architect.ts";
 
 const app = express();
@@ -36,7 +38,7 @@ app.use(express.json({ limit: "10mb" }));
 // Sobrevive a hibernações do Render (a Map em memória seria destruída no restart)
 const SESSIONS_FILE = path.join(process.cwd(), "sessions.json");
 
-type SessionData = { blueprint: DocumentBlueprint; chapters: Chapter[] };
+type SessionData = { blueprint: DocumentBlueprint; chapters: Chapter[]; validationReport?: ValidationReport };
 
 function loadSessions(): Map<string, SessionData> {
   try {
@@ -189,6 +191,8 @@ app.post("/api/session/:sid/validate", async (req, res) => {
       session.blueprint,
       session.chapters
     );
+    session.validationReport = report;
+    saveSessions(sessions);
     res.json({ report });
   } catch (err) {
     console.error("validate error:", err);
@@ -205,6 +209,23 @@ app.get("/api/session/:sid/export/markdown", (req, res) => {
   }
   const md = exportToMarkdown(session.blueprint, session.chapters);
   const filename = `${session.blueprint.title.replace(/[^a-z0-9]/gi, "_")}.md`;
+  res.setHeader("Content-Type", "text/markdown");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.send(md);
+});
+
+app.get("/api/session/:sid/export/validation", (req, res) => {
+  const session = sessions.get(req.params.sid);
+  if (!session) {
+    res.status(404).json({ error: "Sessão não encontrada." });
+    return;
+  }
+  if (!session.validationReport) {
+    res.status(404).json({ error: "Nenhuma validação disponível. Executa a validação primeiro." });
+    return;
+  }
+  const md = exportValidationReport(session.blueprint, session.validationReport);
+  const filename = `${session.blueprint.title.replace(/[^a-z0-9]/gi, "_")}_validation.md`;
   res.setHeader("Content-Type", "text/markdown");
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
   res.send(md);
