@@ -10,5 +10,5 @@ export const llm = new OpenAI({
 // Modelo principal — llama-3.3-70b segue instruções JSON com alta fiabilidade
 export const MODEL = "llama-3.3-70b-versatile";
 
-// Modelo leve para analyze (mais rápido, tokens mais baratos)
-export const MODEL_FAST = "llama-3.1-8b-instant";
+// Modelo leve para analyze — usar mesmo modelo que MODEL (8b foi removido do free tier)
+export const MODEL_FAST = "llama-3.3-70b-versatile";
