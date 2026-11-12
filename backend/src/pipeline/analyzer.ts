@@ -62,10 +62,17 @@ Respond ONLY with valid JSON, no markdown, no explanations. Exact format:
     response.content[0].type === "text" ? response.content[0].text : "";
 
   // strip markdown fences: ```json ... ``` ou ``` ... ```
-  const text = raw
+  let text = raw
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```\s*$/, "")
     .trim();
+
+  // extrair desde o primeiro { até ao último } (handle texto extra antes/depois)
+  const firstBrace = text.indexOf("{");
+  const lastBrace = text.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    text = text.slice(firstBrace, lastBrace + 1);
+  }
 
   try {
     return JSON.parse(text) as DocumentArchitecture;

@@ -92,7 +92,7 @@ export async function buildBlueprint(
 
   const response = await client.messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 4096,
+    max_tokens: 8192,
     system: `You are an elite document architect. You receive an objective and, optionally, a reference architecture. You create a complete, dense, and specific structural plan for the new document.
 
 LANGUAGE RULE: All fields in the JSON (title, objective, audience, chapter titles, intents, globalRules) must be written exclusively in English. No exceptions.
@@ -149,13 +149,13 @@ Respond ONLY with valid JSON. Exact format:
     .replace(/\s*```\s*$/, "")
     .trim();
 
-  // fallback: extrair o bloco JSON mais externo caso haja texto extra
-  if (!text.startsWith("{")) {
-    const match = text.match(/\{[\s\S]*\}/);
-    if (match) text = match[0];
+  // fallback: extrair desde o primeiro { até ao último } (handle texto extra antes/depois)
+  const firstBrace = text.indexOf("{");
+  const lastBrace = text.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    text = text.slice(firstBrace, lastBrace + 1);
   }
 
-  // se o JSON foi truncado, tentar recuperar fechando estruturas abertas
   const tryParse = (src: string): DocumentBlueprint | null => {
     try {
       return JSON.parse(src) as DocumentBlueprint;
@@ -167,12 +167,15 @@ Respond ONLY with valid JSON. Exact format:
   let blueprint = tryParse(text);
 
   if (!blueprint) {
-    // tentativa de reparação: fechar arrays/objectos abertos
+    // tentativa de reparação: fechar arrays/objectos abertos (output truncado)
     let repaired = text;
+    // remover vírgula pendente e trailing lixo após o último valor completo
+    repaired = repaired.replace(/,\s*$/, "");
+    // remover última propriedade incompleta: "key": <valor incompleto sem fecha>
+    repaired = repaired.replace(/,?\s*"[^"]*"\s*:\s*"[^"]*$/, "");
+    repaired = repaired.replace(/,?\s*"[^"]*"\s*:\s*$/, "");
     const openBraces = (repaired.match(/\{/g) || []).length - (repaired.match(/\}/g) || []).length;
     const openBrackets = (repaired.match(/\[/g) || []).length - (repaired.match(/\]/g) || []).length;
-    // remover vírgula pendente antes de fechar
-    repaired = repaired.replace(/,\s*$/, "");
     for (let i = 0; i < openBrackets; i++) repaired += "]";
     for (let i = 0; i < openBraces; i++) repaired += "}";
     blueprint = tryParse(repaired);
