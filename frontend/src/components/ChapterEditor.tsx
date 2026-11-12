@@ -219,7 +219,10 @@ export function ChapterEditor() {
             chapter={ch}
             isActive={ch.id === activeChapterId}
             onGenerate={handleGenerate}
-            onSelect={setActiveChapterId}
+            onSelect={(id) => {
+              setActiveChapterId(id);
+              setStreamingContent("");
+            }}
           />
         ))}
 

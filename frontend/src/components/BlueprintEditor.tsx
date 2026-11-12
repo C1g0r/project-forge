@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Edit3, ChevronRight, GripVertical, Clock, FileText, Zap } from "lucide-react";
+import { Edit3, ChevronRight, GripVertical, Clock, Zap } from "lucide-react";
 import { useProjectStore } from "../store/projectStore";
-import { updateBlueprintRemote } from "../lib/api";
+import { updateBlueprintRemote, SessionExpiredError } from "../lib/api";
 import type { Chapter } from "../store/projectStore";
 
 const lengthLabels = { short: "~300p", medium: "~800p", long: "~1500p", extensive: "~3000p" };
@@ -45,13 +45,16 @@ export function BlueprintEditor() {
       await updateBlueprintRemote(sessionId, blueprint);
       setStep("writing");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao sincronizar");
+      if (err instanceof SessionExpiredError) {
+        setError(err.message);
+      } else {
+        setError(err instanceof Error ? err.message : "Erro ao sincronizar");
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const totalWords = Object.values(lengthLabels).length; // placeholder
   const doneCount = blueprint.chapters.filter((c) => c.status === "done").length;
 
   return (

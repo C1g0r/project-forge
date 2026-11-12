@@ -149,7 +149,15 @@ export default function App() {
           <div className="max-w-7xl mx-auto flex items-start gap-2">
             <AlertCircle size={14} className="text-red-400 shrink-0 mt-0.5" />
             <p className="text-xs text-red-300 flex-1">{error}</p>
-            <button onClick={() => setError(null)} className="shrink-0">
+            {error.startsWith("Sessão expirada") && (
+              <button
+                onClick={() => { setError(null); reset(); }}
+                className="shrink-0 text-xs text-red-300 hover:text-white underline underline-offset-2 transition-colors"
+              >
+                Recomeçar
+              </button>
+            )}
+            <button onClick={() => setError(null)} className="shrink-0 ml-1">
               <X size={14} className="text-red-400 hover:text-red-200" />
             </button>
           </div>

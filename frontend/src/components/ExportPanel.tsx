@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Download, FileText, Copy, Check, ExternalLink } from "lucide-react";
 import { useProjectStore } from "../store/projectStore";
 import { exportMarkdownUrl } from "../lib/api";
@@ -16,7 +16,12 @@ export function ExportPanel() {
 
   const doneChapters = blueprint.chapters.filter((c) => c.status === "done");
 
-  const buildMarkdownPreview = () => {
+  const markdownPreview = useMemo(() => {
+    return buildMarkdownPreview();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blueprint, sessionId]);
+
+  function buildMarkdownPreview() {
     const lines: string[] = [
       `# ${blueprint.title}`,
       "",
@@ -160,8 +165,8 @@ export function ExportPanel() {
         <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Pré-visualização</p>
         <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-3 sm:p-4 max-h-48 sm:max-h-64 overflow-y-auto
                         font-mono text-xs text-zinc-400 leading-relaxed whitespace-pre-wrap">
-          {buildMarkdownPreview().substring(0, 1200)}
-          {buildMarkdownPreview().length > 1200 && "\n\n..."}
+          {markdownPreview.substring(0, 1200)}
+          {markdownPreview.length > 1200 && "\n\n..."}
         </div>
       </div>
 

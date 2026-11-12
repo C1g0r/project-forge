@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ShieldCheck, AlertTriangle, XCircle, Repeat, Lightbulb, ChevronDown, ChevronRight } from "lucide-react";
 import { useProjectStore } from "../store/projectStore";
-import { validateDocument } from "../lib/api";
+import { validateDocument, SessionExpiredError } from "../lib/api";
 
 function ScoreRing({ score }: { score: number }) {
   const r = 36;
@@ -87,7 +87,11 @@ export function ValidatorPanel() {
       setValidationReport(report);
       setRan(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro na validação");
+      if (err instanceof SessionExpiredError) {
+        setError(err.message);
+      } else {
+        setError(err instanceof Error ? err.message : "Erro na validação");
+      }
       setRan(false);
     } finally {
       setLoading(false);

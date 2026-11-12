@@ -1,6 +1,13 @@
 /// <reference types="vite/client" />
 const BASE = `${import.meta.env.VITE_API_URL ?? "https://project-forge-backend-2knl.onrender.com"}/api`;
 
+export class SessionExpiredError extends Error {
+  constructor() {
+    super("Sessão expirada. O servidor foi reiniciado. Recomeça o processo a partir do início.");
+    this.name = "SessionExpiredError";
+  }
+}
+
 export async function analyzeDocument(content: string) {
   const res = await fetch(`${BASE}/analyze`, {
     method: "POST",
@@ -29,6 +36,7 @@ export async function buildBlueprint(objective: string, architecture: unknown) {
 
 export async function getSession(sid: string) {
   const res = await fetch(`${BASE}/session/${sid}`);
+  if (res.status === 404) throw new SessionExpiredError();
   if (!res.ok) throw new Error((await res.json()).error);
   return res.json();
 }
@@ -42,6 +50,7 @@ export async function updateBlueprintRemote(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ blueprint }),
   });
+  if (res.status === 404) throw new SessionExpiredError();
   if (!res.ok) throw new Error((await res.json()).error);
   return res.json();
 }
@@ -57,11 +66,7 @@ export function streamChapter(
 ): () => void {
   const { onToken, onDone, onError } = callbacks;
 
-  // Use BASE (strips /api suffix) so the URL is always correct in production
-  const apiRoot = BASE.replace(/\/api$/, "");
-  const es = new EventSource(
-    `${apiRoot}/api/session/${sid}/write/${chapterId}`
-  );
+  const es = new EventSource(`${BASE}/session/${sid}/write/${chapterId}`);
 
   es.onmessage = (e) => {
     const data = JSON.parse(e.data);
@@ -76,8 +81,16 @@ export function streamChapter(
     }
   };
 
-  es.onerror = () => {
-    onError("Ligação perdida.");
+  es.onerror = (e) => {
+    // EventSource doesn't expose HTTP status codes directly,
+    // but a 404 from a restarted server causes an immediate error event
+    // with readyState CLOSED. We surface a friendly session-expired message.
+    const target = e.target as EventSource;
+    if (target.readyState === EventSource.CLOSED) {
+      onError("Sessão expirada. O servidor foi reiniciado. Recomeça o processo a partir do início.");
+    } else {
+      onError("Ligação perdida.");
+    }
     es.close();
   };
 
@@ -88,6 +101,7 @@ export async function validateDocument(sid: string) {
   const res = await fetch(`${BASE}/session/${sid}/validate`, {
     method: "POST",
   });
+  if (res.status === 404) throw new SessionExpiredError();
   if (!res.ok) throw new Error((await res.json()).error);
   const data = await res.json();
   // backend wraps report in { report: {...} }
