@@ -7,8 +7,8 @@ export const llm = new OpenAI({
   baseURL: "https://api.groq.com/openai/v1",
 });
 
-// Modelo principal — llama-3.3-70b segue instruções JSON com alta fiabilidade
-export const MODEL = "llama-3.3-70b-versatile";
+// Modelo principal — GPT OSS 120B disponível no free tier do Groq
+export const MODEL = "openai/gpt-oss-120b";
 
-// Modelo leve para analyze — usar mesmo modelo que MODEL (8b foi removido do free tier)
-export const MODEL_FAST = "llama-3.3-70b-versatile";
+// Modelo leve para analyze — GPT OSS 20B, mais rápido
+export const MODEL_FAST = "openai/gpt-oss-20b";
