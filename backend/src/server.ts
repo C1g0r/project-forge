@@ -1,6 +1,8 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import fs from "fs";
+import path from "path";
 import { analyzeDocument } from "./pipeline/analyzer.ts";
 import { buildBlueprint } from "./pipeline/architect.ts";
 import { writeChapter } from "./pipeline/writer.ts";
@@ -29,14 +31,35 @@ app.use(
 );
 app.use(express.json({ limit: "10mb" }));
 
-// sessões em memória (uso pessoal, sem DB)
-const sessions = new Map<
-  string,
-  {
-    blueprint: DocumentBlueprint;
-    chapters: Chapter[];
+// ── SESSÕES PERSISTIDAS EM DISCO ─────────────────────────────────────────────
+// Sobrevive a hibernações do Render (a Map em memória seria destruída no restart)
+const SESSIONS_FILE = path.join(process.cwd(), "sessions.json");
+
+type SessionData = { blueprint: DocumentBlueprint; chapters: Chapter[] };
+
+function loadSessions(): Map<string, SessionData> {
+  try {
+    if (fs.existsSync(SESSIONS_FILE)) {
+      const raw = fs.readFileSync(SESSIONS_FILE, "utf-8");
+      const obj = JSON.parse(raw) as Record<string, SessionData>;
+      return new Map(Object.entries(obj));
+    }
+  } catch {
+    console.warn("sessions.json inválido — a reiniciar.");
   }
->();
+  return new Map();
+}
+
+function saveSessions(sessions: Map<string, SessionData>): void {
+  try {
+    const obj = Object.fromEntries(sessions.entries());
+    fs.writeFileSync(SESSIONS_FILE, JSON.stringify(obj), "utf-8");
+  } catch (err) {
+    console.error("Erro ao persistir sessões:", err);
+  }
+}
+
+const sessions = loadSessions();
 
 function sessionId(): string {
   return Math.random().toString(36).substring(2, 10);
@@ -70,6 +93,7 @@ app.post("/api/architect", async (req, res) => {
     const blueprint = await buildBlueprint(objective, architecture);
     const sid = sessionId();
     sessions.set(sid, { blueprint, chapters: [...blueprint.chapters] });
+    saveSessions(sessions);
     res.json({ sessionId: sid, blueprint });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -87,6 +111,7 @@ app.put("/api/session/:sid/blueprint", (req, res) => {
   }
   session.blueprint = req.body.blueprint;
   session.chapters = req.body.blueprint.chapters;
+  saveSessions(sessions);
   res.json({ ok: true });
 });
 
@@ -129,11 +154,13 @@ app.get("/api/session/:sid/write/:chapterId", async (req, res) => {
 
     chapter.content = fullContent;
     chapter.status = "done";
+    saveSessions(sessions);
     res.write(`data: ${JSON.stringify({ done: true, content: fullContent })}\n\n`);
     res.end();
   } catch (err) {
     console.error("write error:", err);
     chapter.status = "pending";
+    saveSessions(sessions);
     res.write(`data: ${JSON.stringify({ error: "Erro ao escrever capítulo." })}\n\n`);
     res.end();
   }
