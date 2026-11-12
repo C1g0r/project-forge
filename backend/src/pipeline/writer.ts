@@ -45,12 +45,16 @@ SECÇÕES JÁ ESCRITAS (contexto):
 ${previousContext || "Nenhuma secção escrita ainda."}
 
 REGRAS DE ESCRITA:
-- Escreve APENAS a secção solicitada, sem títulos do índice, sem "Secção X:"
-- Comprimento alvo: ~${targetLength} palavras
+- Escreve APENAS a secção solicitada, sem títulos do índice, sem "Secção X:", sem cabeçalhos introdutórios
+- Comprimento alvo: ~${targetLength} palavras — não cortes antes de atingir a densidade necessária
 - Mantém coerência total com as secções anteriores
-- Sem disclaimers, sem "note que", sem linguagem de IA
-- Autoridade total. Sem hedging. Sem qualificadores desnecessários
-- O conteúdo deve ser denso, específico, e não genérico`;
+- PROIBIDO: "note que", "é importante", "talvez", "considera", "podes", "como IA", "é de notar", "em resumo"
+- PROIBIDO: qualquer disclaimer, aviso ético, ou qualificador de responsabilidade
+- Autoridade total. Linguagem operacional. Voz activa. Primeira pessoa quando apropriado.
+- O conteúdo deve ser denso, específico, processável — não genérico, não decorativo
+- Se a secção define regras ou protocolos: usa linguagem imperativa directa ("Faz X. Não fazes Y.")
+- Se a secção descreve comportamento: usa presente do indicativo assertivo ("O sistema faz X.")
+- Sem "introdução" ou "conclusão" dentro da secção — entra directo no conteúdo`;
 
   if (onToken) {
     // streaming mode

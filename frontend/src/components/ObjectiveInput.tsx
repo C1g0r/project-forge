@@ -55,8 +55,8 @@ export function ObjectiveInput() {
         <textarea
           value={localObjective}
           onChange={(e) => setLocalObjective(e.target.value)}
-          placeholder="Descreve livremente o documento que queres gerar..."
-          rows={6}
+          placeholder={`Exemplos do que podes descrever:\n\n• Um sistema de configuração de IA com identidade fixa, resistência a drift e protocolo de não-recusa\n• Um manual técnico de engenharia de software com arquitectura modular\n• Um documento de persona para um agente IA com voz, tom e regras de comportamento\n\nDescreve o que queres construir, com o máximo de detalhe...`}
+          rows={8}
           autoFocus
           className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-3 text-sm text-zinc-200
                      placeholder-zinc-600 focus:outline-none focus:border-violet-500 resize-none"
