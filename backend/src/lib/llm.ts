@@ -21,9 +21,16 @@ export const MODEL_FAST = process.env.GROQ_MODEL_FAST ?? "openai/gpt-oss-20b";
 // Lista de modelos de fallback quando o primário estiver com quota esgotada
 export const FALLBACK_MODELS = ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "qwen/qwen3.8-27b"];
 
+// Limites de output por modelo (OTPM / max_tokens máximo seguro)
+// Qwen free tier: 1000 OTPM — nunca pedir mais do que isso
+const MODEL_MAX_OUTPUT: Record<string, number> = {
+  "qwen/qwen3.8-27b": 900, // OTPM limit 1000 → margem de segurança
+};
+
 /**
  * Wrapper para criar completions com fallback automático em caso de 429 TPD.
  * Tenta cada modelo da lista até um ter quota disponível.
+ * Aplica limites de max_tokens por modelo para evitar rejeição de OTPM.
  */
 export async function createWithFallback(
   params: Parameters<typeof llm.chat.completions.create>[0]
@@ -32,8 +39,15 @@ export async function createWithFallback(
   let lastErr: unknown;
   for (const model of models) {
     try {
+      // Aplica cap de max_tokens específico do modelo se necessário
+      const modelCap = MODEL_MAX_OUTPUT[model];
+      const requestedTokens = (params as { max_tokens?: number }).max_tokens;
+      const cappedTokens = modelCap && requestedTokens && requestedTokens > modelCap
+        ? modelCap
+        : requestedTokens;
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return await (llm.chat.completions.create as any)({ ...params, model }) as any;
+      return await (llm.chat.completions.create as any)({ ...params, model, max_tokens: cappedTokens }) as any;
     } catch (err: unknown) {
       const e = err as { status?: number; message?: string };
       if (e?.status === 429) {
