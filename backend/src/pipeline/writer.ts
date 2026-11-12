@@ -35,7 +35,7 @@ export async function writeChapter(
 
   const systemPrompt = `You are an elite document writer. You write individual sections of extensive, authoritative documents.
 
-LANGUAGE RULE: Write ALL content exclusively in English. No exceptions.
+LANGUAGE RULE: Write ALL content in the SAME language as the document title and objective. If the title/objective is in Portuguese, write in Portuguese. If in English, write in English. Match the language exactly — no switching mid-document.
 
 DOCUMENT: ${blueprint.title}
 GLOBAL OBJECTIVE: ${blueprint.objective}
