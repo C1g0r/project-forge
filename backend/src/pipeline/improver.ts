@@ -78,10 +78,25 @@ export async function improveDocument(
 
     const affectedIssues = chapterIsAffected(chapter, allIssues);
 
-    // Skip chapters with no specific issues AND no global suggestions
-    if (affectedIssues.length === 0 && !hasSuggestions) {
+    // Só melhora capítulos com issues específicas OU sugestões relevantes ao conteúdo do capítulo
+    // Evita reescrever capítulos bons com base em sugestões globais que não se aplicam
+    const hasDirectIssues = affectedIssues.length > 0;
+    const hasRelevantSuggestions = hasSuggestions && report.suggestions.some((s) => {
+      const sLower = s.toLowerCase();
+      const titleLower = chapter.title.toLowerCase();
+      // Sugestão menciona explicitamente o capítulo, ou é uma sugestão de estrutura global
+      return (
+        sLower.includes(titleLower) ||
+        sLower.includes("todo") || sLower.includes("todos") ||
+        sLower.includes("document") || sLower.includes("documento") ||
+        sLower.includes("all section") || sLower.includes("toda") ||
+        sLower.includes("throughout") || sLower.includes("ao longo")
+      );
+    });
+
+    if (!hasDirectIssues && !hasRelevantSuggestions) {
       result.skippedCount++;
-      result.details.push({ chapterId: chapter.id, title: chapter.title, improved: false, reason: "no issues found" });
+      result.details.push({ chapterId: chapter.id, title: chapter.title, improved: false, reason: "no relevant issues" });
       onProgress?.(chapter.id, "skip");
       continue;
     }
@@ -127,9 +142,14 @@ INSTRUCTIONS:
 - Output ONLY the rewritten chapter body — no title, no headers, no preamble`;
 
     try {
+      // tokens necessários: aproximadamente o dobro do tamanho actual do capítulo
+      // (reescrita pode expandir; cap em 6000 para não exaurir quota)
+      const chapterTokenEstimate = Math.ceil((chapter.content.length / 4) * 1.5);
+      const improveMaxTokens = Math.min(Math.max(chapterTokenEstimate, 1500), 6000);
+
       const response = await createWithFallback({
         model: MODEL,
-        max_tokens: 2000,
+        max_tokens: improveMaxTokens,
         messages: [
           { role: "system", content: "You are an elite document editor. Fix and improve the given chapter." },
           { role: "user", content: prompt },

@@ -69,7 +69,9 @@ WRITING RULES:
 
   const userMessage = `Write the section: "${chapter.title}"\nPurpose of this section: ${chapter.intent}`;
 
-  const maxTokens = Math.min(targetLength * 4, 2000);
+  // targetLength em palavras → tokens (~1.4 tokens/palavra em PT/EN)
+  // buffer generoso: conteúdo denso precisa de espaço para não ser cortado
+  const maxTokens = Math.min(Math.ceil(targetLength * 2.2), 6000);
   const messages: { role: "system" | "user"; content: string }[] = [
     { role: "system", content: systemPrompt },
     { role: "user", content: userMessage },

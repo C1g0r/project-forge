@@ -110,6 +110,13 @@ RULES:
 - No disclaimers, no "perhaps", no hedging in the plan
 - The title must be specific and authoritative
 
+ESTIMATED LENGTH RULES (use these criteria strictly):
+- "short" (300 words): introductions, summaries, single-concept definitions — rarely used
+- "medium" (800 words): standard chapters with one clear topic — the default for simple chapters
+- "long" (1500 words): chapters with multiple sub-topics, protocols, rules or procedures — use for most substantive chapters
+- "extensive" (3000 words): core chapters that ARE the document (main protocol, full specification, complete ruleset, primary guide) — use for 2–4 key chapters maximum
+- Bias toward "long" for content chapters. "medium" is for simple or auxiliary chapters only. A document with all "medium" chapters is under-specified.
+
 OUTPUT RULE: Output ONLY the raw JSON object. No preamble. No explanation. No markdown. No <think> blocks. No XML tags. Start your response with { and end with }. Nothing before {. Nothing after }.
 
 Exact JSON format:
