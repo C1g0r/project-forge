@@ -1,4 +1,4 @@
-import { llm, MODEL } from "../lib/llm.js";
+import { llm, MODEL } from "../lib/llm.ts";
 import type { DocumentBlueprint, Chapter } from "./architect.ts";
 
 export interface ValidationReport {

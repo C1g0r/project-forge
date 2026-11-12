@@ -1,4 +1,4 @@
-import { llm, MODEL_FAST } from "../lib/llm.js";
+import { llm, MODEL_FAST } from "../lib/llm.ts";
 
 export interface DocumentArchitecture {
   layers: Layer[];

@@ -1,5 +1,5 @@
-import { llm, MODEL } from "../lib/llm.js";
-import type { DocumentArchitecture } from "./analyzer.js";
+import { llm, MODEL } from "../lib/llm.ts";
+import type { DocumentArchitecture } from "./analyzer.ts";
 
 export interface DocumentBlueprint {
   title: string;
