@@ -15,9 +15,20 @@ export async function writeChapter(
   onToken?: (token: string) => void
 ): Promise<string> {
   // contexto das secções já escritas (resumido para poupar tokens)
+  // Cap total previous context to stay well under model limits
+  const CONTEXT_CHAR_LIMIT = 32768;
+  let contextBudget = CONTEXT_CHAR_LIMIT;
   const previousContext = completedChapters
     .filter((c) => c.content)
-    .map((c) => `## ${c.title}\n${c.content!.substring(0, 400)}[...]`)
+    .reverse() // most recent first — most relevant context
+    .reduce<string[]>((acc, c) => {
+      const excerpt = `## ${c.title}\n${c.content!.substring(0, 600)}[...]`;
+      if (contextBudget - excerpt.length > 0) {
+        contextBudget -= excerpt.length;
+        acc.unshift(excerpt); // keep chronological order
+      }
+      return acc;
+    }, [])
     .join("\n\n");
 
   const targetLength = lengthMap[chapter.estimatedLength];
