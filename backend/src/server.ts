@@ -1,5 +1,13 @@
 import "dotenv/config";
 import express from "express";
+
+// Captura erros não tratados para debugging
+process.on("uncaughtException", (err) => {
+  console.error("UNCAUGHT EXCEPTION:", err.message, err.stack);
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("UNHANDLED REJECTION:", reason);
+});
 import cors from "cors";
 import fs from "fs";
 import path from "path";
@@ -292,6 +300,14 @@ app.get("/api/session/:sid/export/validation", (req, res) => {
   res.setHeader("Content-Type", "text/markdown");
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
   res.send(md);
+});
+
+// ── GLOBAL ERROR HANDLER (captura erros que escapam dos routes) ──────────────
+app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  const msg = err instanceof Error ? err.message : String(err);
+  const stack = err instanceof Error ? err.stack : undefined;
+  console.error("GLOBAL ERROR HANDLER:", msg, stack);
+  res.status(500).json({ error: "Internal server error", detail: msg, stack });
 });
 
 const PORT = process.env.PORT || 3001;
