@@ -115,7 +115,7 @@ export default function App() {
           <div className="hidden sm:flex items-center gap-1.5 shrink-0">
             <Zap size={16} className="text-violet-400" />
             <span className="font-bold text-zinc-100 tracking-tight text-sm">PROJECT FORGE</span>
-            <span className="text-xs text-zinc-700">v0.1</span>
+            <span className="text-xs text-zinc-700">v2.0</span>
           </div>
 
           {/* stepbar — takes remaining space */}
