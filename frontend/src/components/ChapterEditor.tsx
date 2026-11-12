@@ -25,7 +25,7 @@ function ChapterCard({
 
   return (
     <div
-      className={`border rounded-lg transition-all
+      className={`border rounded-xl transition-all
         ${isActive ? "border-violet-500 bg-violet-500/5" : "border-zinc-800 bg-zinc-900"}
         ${chapter.status === "done" ? "border-emerald-500/20" : ""}
       `}
@@ -187,9 +187,9 @@ export function ChapterEditor() {
   const activeChapter = chapters.find((c) => c.id === activeChapterId);
 
   return (
-    <div className="flex gap-4 h-full">
+    <div className="flex flex-col lg:flex-row gap-4 h-full">
       {/* lista de capítulos */}
-      <div className="w-72 shrink-0 space-y-2 overflow-y-auto">
+      <div className="lg:w-72 shrink-0 space-y-2 overflow-y-auto">
         <div className="flex items-center justify-between mb-3">
           <p className="text-xs text-zinc-500 uppercase tracking-wider">
             {doneCount}/{chapters.length} capítulos
@@ -197,7 +197,7 @@ export function ChapterEditor() {
           {!isStreaming && doneCount < chapters.length && (
             <button
               onClick={handleGenerateAll}
-              className="text-xs text-violet-400 hover:text-violet-300 transition-colors"
+              className="text-xs text-violet-400 hover:text-violet-300 active:text-violet-500 transition-colors"
             >
               Gerar todos
             </button>
@@ -226,16 +226,16 @@ export function ChapterEditor() {
         <div className="pt-3 space-y-2">
           <button
             onClick={() => setStep("blueprint")}
-            className="w-full text-zinc-500 hover:text-zinc-300 border border-zinc-800
-                       hover:border-zinc-600 rounded-lg py-2 text-sm transition-colors"
+            className="w-full text-zinc-500 hover:text-zinc-300 active:text-zinc-200 border border-zinc-800
+                       hover:border-zinc-600 rounded-xl py-3 sm:py-2 text-sm transition-colors"
           >
             ← Índice
           </button>
           {allDone && (
             <button
               onClick={() => setStep("validate")}
-              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium
-                         rounded-lg py-2 text-sm transition-colors"
+              className="w-full bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-medium
+                         rounded-xl py-3 sm:py-2 text-sm transition-colors"
             >
               Validar Documento →
             </button>
@@ -243,19 +243,19 @@ export function ChapterEditor() {
         </div>
       </div>
 
-      {/* painel de streaming */}
-      <div className="flex-1 flex flex-col min-h-0">
+      {/* painel de streaming — hidden on mobile when no chapter selected */}
+      <div className={`flex-1 flex flex-col min-h-0 ${!activeChapterId ? "hidden lg:flex" : "flex"}`}>
         {activeChapterId ? (
           <>
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h3 className="font-semibold text-zinc-100">
+            <div className="flex items-start justify-between mb-3 gap-3">
+              <div className="min-w-0">
+                <h3 className="font-semibold text-zinc-100 text-sm sm:text-base leading-tight">
                   {activeChapter?.title || ""}
                 </h3>
-                <p className="text-xs text-zinc-500">{activeChapter?.intent}</p>
+                <p className="text-xs text-zinc-500 mt-0.5 line-clamp-2">{activeChapter?.intent}</p>
               </div>
               {isStreaming && (
-                <div className="flex items-center gap-2 text-xs text-violet-400">
+                <div className="flex items-center gap-2 text-xs text-violet-400 shrink-0">
                   <div className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
                   A escrever...
                 </div>
@@ -264,8 +264,8 @@ export function ChapterEditor() {
 
             <div
               ref={streamRef}
-              className="flex-1 overflow-y-auto bg-zinc-950 border border-zinc-800 rounded-lg p-4
-                         font-mono text-xs text-zinc-300 leading-relaxed whitespace-pre-wrap"
+              className="flex-1 overflow-y-auto bg-zinc-950 border border-zinc-800 rounded-xl p-3 sm:p-4
+                         font-mono text-xs text-zinc-300 leading-relaxed whitespace-pre-wrap min-h-48 lg:min-h-0"
             >
               {streamingContent ||
                 (activeChapter?.content) ||
@@ -287,7 +287,7 @@ export function ChapterEditor() {
               {!isStreaming && activeChapter?.status === "done" && (
                 <button
                   onClick={() => handleGenerate(activeChapterId)}
-                  className="text-zinc-500 hover:text-violet-400 transition-colors"
+                  className="text-zinc-500 hover:text-violet-400 active:text-violet-500 transition-colors"
                 >
                   Regenerar
                 </button>
@@ -299,7 +299,7 @@ export function ChapterEditor() {
             <div className="text-center space-y-2">
               <Play size={32} className="mx-auto text-zinc-800" />
               <p>Selecciona um capítulo para gerar</p>
-              <p className="text-xs text-zinc-800">ou clica "Gerar todos" para correr o pipeline completo</p>
+              <p className="text-xs text-zinc-800">ou clica "Gerar todos"</p>
             </div>
           </div>
         )}

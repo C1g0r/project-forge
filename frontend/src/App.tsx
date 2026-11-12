@@ -27,29 +27,28 @@ type StepId = (typeof STEPS)[number]["id"];
 function StepBar({ current, onStepClick }: { current: StepId; onStepClick: (id: StepId) => void }) {
   const currentIdx = STEP_ORDER.indexOf(current);
   return (
-    <div className="flex items-center gap-0">
+    <div className="flex items-center overflow-x-auto scrollbar-none gap-0 py-0.5">
       {STEPS.map((step, i) => {
         const done = i < currentIdx;
         const active = step.id === current;
-        // Allow clicking only on done steps (going back)
         const clickable = done;
         return (
-          <div key={step.id} className="flex items-center">
+          <div key={step.id} className="flex items-center shrink-0">
             <button
               onClick={() => clickable && onStepClick(step.id)}
               disabled={!clickable}
-              className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors
+              className={`flex items-center gap-1 px-1.5 py-1 rounded text-[11px] transition-colors whitespace-nowrap
                 ${active ? "text-violet-300 bg-violet-500/10" : done ? "text-zinc-400 hover:text-zinc-200 cursor-pointer" : "text-zinc-700 cursor-default"}`}
             >
-              <span className={`w-4 h-4 rounded-full text-[10px] flex items-center justify-center font-bold
+              <span className={`w-3.5 h-3.5 rounded-full text-[9px] flex items-center justify-center font-bold shrink-0
                 ${active ? "bg-violet-500 text-white" : done ? "bg-zinc-700 text-zinc-400" : "bg-zinc-800 text-zinc-700"}`}
               >
                 {done ? "✓" : i + 1}
               </span>
-              {step.label}
+              <span className="hidden sm:inline">{step.label}</span>
             </button>
             {i < STEPS.length - 1 && (
-              <div className={`h-px w-4 ${done ? "bg-zinc-600" : "bg-zinc-800"}`} />
+              <div className={`h-px w-2 sm:w-4 shrink-0 ${done ? "bg-zinc-600" : "bg-zinc-800"}`} />
             )}
           </div>
         );
@@ -66,6 +65,7 @@ export default function App() {
   } = useProjectStore();
 
   const [showSettings, setShowSettings] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(false);
 
   const renderMain = () => {
     switch (step) {
@@ -84,57 +84,60 @@ export default function App() {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-200 flex flex-col">
       {/* topbar */}
-      <header className="border-b border-zinc-800 bg-zinc-950/80 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 h-12 flex items-center justify-between gap-4">
-          {/* left: logo + back/forward */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <Zap size={18} className="text-violet-400" />
-              <span className="font-bold text-zinc-100 tracking-tight">PROJECT FORGE</span>
-              <span className="text-xs text-zinc-700 ml-1">v0.1</span>
-            </div>
-            {/* back / forward nav */}
-            <div className="flex items-center gap-1 ml-2">
-              <button
-                onClick={goBack}
-                disabled={!canGoBack()}
-                title="Passo anterior"
-                className="w-6 h-6 flex items-center justify-center rounded
-                           text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800
-                           disabled:opacity-30 disabled:cursor-default transition-colors"
-              >
-                <ChevronLeft size={14} />
-              </button>
-              <button
-                onClick={goForward}
-                disabled={!canGoForward()}
-                title="Próximo passo"
-                className="w-6 h-6 flex items-center justify-center rounded
-                           text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800
-                           disabled:opacity-30 disabled:cursor-default transition-colors"
-              >
-                <ChevronRight size={14} />
-              </button>
-            </div>
+      <header className="border-b border-zinc-800 bg-zinc-950/90 backdrop-blur sticky top-0 z-20">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 h-11 sm:h-12 flex items-center gap-2 sm:gap-4">
+
+          {/* back/forward */}
+          <div className="flex items-center gap-0.5 shrink-0">
+            <button
+              onClick={goBack}
+              disabled={!canGoBack()}
+              title="Passo anterior"
+              className="w-7 h-7 flex items-center justify-center rounded
+                         text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800
+                         disabled:opacity-30 disabled:cursor-default transition-colors"
+            >
+              <ChevronLeft size={15} />
+            </button>
+            <button
+              onClick={goForward}
+              disabled={!canGoForward()}
+              title="Próximo passo"
+              className="w-7 h-7 flex items-center justify-center rounded
+                         text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800
+                         disabled:opacity-30 disabled:cursor-default transition-colors"
+            >
+              <ChevronRight size={15} />
+            </button>
           </div>
 
-          <StepBar current={step as StepId} onStepClick={(id) => setStep(id)} />
+          {/* logo — hidden on xs to save space */}
+          <div className="hidden sm:flex items-center gap-1.5 shrink-0">
+            <Zap size={16} className="text-violet-400" />
+            <span className="font-bold text-zinc-100 tracking-tight text-sm">PROJECT FORGE</span>
+            <span className="text-xs text-zinc-700">v0.1</span>
+          </div>
 
-          {/* right: settings + reset */}
-          <div className="flex items-center gap-3">
+          {/* stepbar — takes remaining space */}
+          <div className="flex-1 min-w-0">
+            <StepBar current={step as StepId} onStepClick={(id) => setStep(id)} />
+          </div>
+
+          {/* right actions */}
+          <div className="flex items-center gap-1 shrink-0">
             <button
               onClick={() => setShowSettings(true)}
               title="Definições"
-              className="flex items-center gap-1.5 text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
+              className="w-7 h-7 flex items-center justify-center rounded text-zinc-600 hover:text-zinc-400 hover:bg-zinc-800 transition-colors"
             >
-              <Settings size={14} />
+              <Settings size={15} />
             </button>
             <button
               onClick={() => { if (confirm("Recomeçar? Perderás todo o progresso.")) reset(); }}
-              className="flex items-center gap-1.5 text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
+              title="Reset"
+              className="w-7 h-7 flex items-center justify-center rounded text-zinc-600 hover:text-zinc-400 hover:bg-zinc-800 transition-colors"
             >
-              <RotateCcw size={12} />
-              Reset
+              <RotateCcw size={13} />
             </button>
           </div>
         </div>
@@ -142,11 +145,11 @@ export default function App() {
 
       {/* error banner */}
       {error && (
-        <div className="bg-red-500/10 border-b border-red-500/30 px-4 py-2.5">
-          <div className="max-w-7xl mx-auto flex items-center gap-2">
-            <AlertCircle size={14} className="text-red-400 shrink-0" />
+        <div className="bg-red-500/10 border-b border-red-500/30 px-3 sm:px-4 py-2">
+          <div className="max-w-7xl mx-auto flex items-start gap-2">
+            <AlertCircle size={14} className="text-red-400 shrink-0 mt-0.5" />
             <p className="text-xs text-red-300 flex-1">{error}</p>
-            <button onClick={() => setError(null)}>
+            <button onClick={() => setError(null)} className="shrink-0">
               <X size={14} className="text-red-400 hover:text-red-200" />
             </button>
           </div>
@@ -155,29 +158,51 @@ export default function App() {
 
       {/* loading overlay */}
       {isLoading && (
-        <div className="fixed inset-0 bg-zinc-950/70 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 flex flex-col items-center gap-3">
+        <div className="fixed inset-0 bg-zinc-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 flex flex-col items-center gap-3 w-full max-w-xs">
             <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm text-zinc-300">{loadingMessage || "A processar..."}</p>
+            <p className="text-sm text-zinc-300 text-center">{loadingMessage || "A processar..."}</p>
           </div>
         </div>
       )}
 
-      {/* settings panel overlay */}
+      {/* settings panel */}
       {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
 
+      {/* mobile sidebar overlay */}
+      {showSidebar && (
+        <div
+          className="fixed inset-0 bg-zinc-950/60 z-30 lg:hidden"
+          onClick={() => setShowSidebar(false)}
+        >
+          <div
+            className="absolute right-0 top-0 h-full w-72 bg-zinc-900 border-l border-zinc-800 overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+              <p className="text-xs text-zinc-500 uppercase tracking-wider">Contexto</p>
+              <button onClick={() => setShowSidebar(false)}>
+                <X size={14} className="text-zinc-500" />
+              </button>
+            </div>
+            <ContextSidebar />
+          </div>
+        </div>
+      )}
+
       {/* main layout */}
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-6">
-        <div className={`flex gap-6 ${isWideStep ? "h-[calc(100vh-10rem)]" : ""}`}>
+      <main className="flex-1 max-w-7xl mx-auto w-full px-3 sm:px-4 py-4 sm:py-6">
+        <div className={`flex gap-4 lg:gap-6 ${isWideStep ? "h-[calc(100vh-7rem)] sm:h-[calc(100vh-10rem)]" : ""}`}>
+
           {/* center panel */}
           <div className={`flex-1 min-w-0 ${isWideStep ? "flex flex-col" : ""}`}>
             {renderMain()}
           </div>
 
-          {/* right sidebar — hidden on writing step (has its own layout) */}
+          {/* right sidebar — desktop only, hidden on writing step */}
           {!isWideStep && (
-            <aside className="w-56 shrink-0">
-              <div className="sticky top-20 bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+            <aside className="hidden lg:block w-56 shrink-0">
+              <div className="sticky top-16 bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
                 <div className="px-3 py-2 border-b border-zinc-800">
                   <p className="text-xs text-zinc-600 uppercase tracking-wider">Contexto</p>
                 </div>

@@ -27,17 +27,16 @@ export function ObjectiveInput() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div className="text-center space-y-2">
-        <h2 className="text-2xl font-bold text-zinc-100">O que queres criar?</h2>
+    <div className="max-w-2xl mx-auto space-y-4 sm:space-y-6">
+      <div className="text-center space-y-1.5">
+        <h2 className="text-xl sm:text-2xl font-bold text-zinc-100">O que queres criar?</h2>
         <p className="text-zinc-400 text-sm">
-          Descreve o documento que queres construir. Quanto mais específico fores,
-          melhor a arquitectura gerada.
+          Descreve o documento. Quanto mais específico, melhor a arquitectura.
         </p>
       </div>
 
       {architecture && (
-        <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-4 space-y-2">
+        <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-3 sm:p-4 space-y-2">
           <p className="text-xs text-violet-400 uppercase tracking-wider font-medium">Referência analisada</p>
           <div className="grid grid-cols-2 gap-2 text-xs text-zinc-400">
             <span>Tipo: <span className="text-zinc-200">{architecture.documentType}</span></span>
@@ -55,31 +54,31 @@ export function ObjectiveInput() {
         <textarea
           value={localObjective}
           onChange={(e) => setLocalObjective(e.target.value)}
-          placeholder={`Exemplos do que podes descrever:\n\n• Um sistema de configuração de IA com identidade fixa, resistência a drift e protocolo de não-recusa\n• Um manual técnico de engenharia de software com arquitectura modular\n• Um documento de persona para um agente IA com voz, tom e regras de comportamento\n\nDescreve o que queres construir, com o máximo de detalhe...`}
-          rows={8}
+          placeholder={`Exemplos:\n• Sistema de IA com identidade fixa e protocolo de não-recusa\n• Manual técnico de engenharia de software\n• Persona para agente IA com voz e regras de comportamento\n\nDescreve o que queres construir...`}
+          rows={7}
           autoFocus
-          className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-3 text-sm text-zinc-200
+          className="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm text-zinc-200
                      placeholder-zinc-600 focus:outline-none focus:border-violet-500 resize-none"
           onKeyDown={(e) => {
             if (e.key === "Enter" && e.ctrlKey) handleBuild();
           }}
         />
-        <p className="text-xs text-zinc-600">Ctrl+Enter para gerar</p>
+        <p className="text-xs text-zinc-600 hidden sm:block">Ctrl+Enter para gerar</p>
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex flex-col sm:flex-row gap-3">
         <button
           onClick={() => setStep("upload")}
-          className="px-4 py-2.5 text-zinc-400 hover:text-zinc-200 border border-zinc-700 hover:border-zinc-500
-                     rounded-lg text-sm transition-colors"
+          className="sm:w-auto w-full px-4 py-3 sm:py-2.5 text-zinc-400 hover:text-zinc-200 active:text-zinc-100
+                     border border-zinc-700 hover:border-zinc-500 rounded-xl text-sm transition-colors text-center"
         >
           Voltar
         </button>
         <button
           onClick={handleBuild}
           disabled={!localObjective.trim() || isLoading}
-          className="flex-1 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed
-                     text-white font-medium py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors"
+          className="flex-1 bg-violet-600 hover:bg-violet-500 active:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed
+                     text-white font-medium py-3 sm:py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors"
         >
           <Zap size={16} />
           {isLoading ? "A construir arquitectura..." : "Gerar Arquitectura"}

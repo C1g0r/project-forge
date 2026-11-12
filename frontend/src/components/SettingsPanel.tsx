@@ -57,7 +57,7 @@ export function SettingsPanel({ onClose }: Props) {
       />
 
       {/* panel */}
-      <div className="fixed right-0 top-0 h-full w-96 bg-zinc-900 border-l border-zinc-800 z-50 flex flex-col">
+      <div className="fixed right-0 top-0 h-full w-full sm:w-96 bg-zinc-900 border-l border-zinc-800 z-50 flex flex-col">
         {/* header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
           <div className="flex items-center gap-2">
