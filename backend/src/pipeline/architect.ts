@@ -90,7 +90,7 @@ export async function buildBlueprint(
 
   const response = await createWithFallback({
     model: MODEL,
-    max_tokens: 2000,
+    max_tokens: 4000,
     temperature: 0.3,
     // response_format json_object removed — not supported by all Groq models
     messages: [
@@ -166,7 +166,8 @@ Exact JSON format:
     .replace(/\s*<\/output>\s*$/i, "")
     .trim();
 
-  // 4. extrair desde o primeiro { até ao último } (handle texto extra antes/depois)
+  // 4. extrair desde o primeiro { até ao último } (handle texto extra antes/depois,
+  //    incluindo thinking inline sem tags — Qwen/DeepSeek sem enable_thinking)
   const firstBrace = text.indexOf("{");
   const lastBrace = text.lastIndexOf("}");
   if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
@@ -194,6 +195,39 @@ Exact JSON format:
     for (let i = 0; i < openBrackets; i++) repaired += "]";
     for (let i = 0; i < openBraces; i++) repaired += "}";
     blueprint = tryParse(repaired);
+  }
+
+  if (!blueprint) {
+    // Retry com prompt mais curto e explícito — última tentativa antes de falhar
+    console.warn("[architect] First parse failed, retrying with explicit JSON prompt...");
+    const retryResponse = await createWithFallback({
+      model: MODEL,
+      max_tokens: 4000,
+      temperature: 0.1,
+      messages: [
+        {
+          role: "system",
+          content: `You output ONLY valid JSON. No text before or after. No thinking. No explanation.
+Start with { and end with }. Nothing else.
+
+Required structure:
+{"title":"...","objective":"...","audience":"...","chapters":[{"id":"ch1","title":"...","intent":"...","position":1,"dependsOn":[],"estimatedLength":"medium","status":"pending"}],"globalRules":{"identity":"...","tone":"...","voice":"...","forbiddenLanguage":[],"mandatoryElements":[],"qualityCriteria":[]}}`,
+        },
+        {
+          role: "user",
+          content: `Create a document blueprint for this objective (respond in the same language as the objective): ${objective}`,
+        },
+      ],
+    });
+
+    const retryRaw = retryResponse.choices[0].message.content ?? "";
+    let retryText = retryRaw.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+    const rb1 = retryText.indexOf("{");
+    const rb2 = retryText.lastIndexOf("}");
+    if (rb1 !== -1 && rb2 !== -1 && rb2 > rb1) {
+      retryText = retryText.slice(rb1, rb2 + 1);
+    }
+    blueprint = tryParse(retryText);
   }
 
   if (!blueprint) {
