@@ -118,7 +118,7 @@ interface ProjectState {
   setSession: (id: string, blueprint: DocumentBlueprint) => void;
   updateChapter: (chapterId: string, updates: Partial<Chapter>) => void;
   updateBlueprint: (blueprint: DocumentBlueprint) => void;
-  setValidationReport: (report: ValidationReport) => void;
+  setValidationReport: (report: ValidationReport | null) => void;
   setLoading: (loading: boolean, message?: string) => void;
   setError: (error: string | null) => void;
   saveChapterDraft: (chapterId: string, content: string) => void;

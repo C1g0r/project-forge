@@ -10,6 +10,7 @@ import { validateDocument } from "./pipeline/validator.ts";
 import type { ValidationReport } from "./pipeline/validator.ts";
 import { exportToMarkdown } from "./export/markdown.ts";
 import { exportValidationReport } from "./export/validation.ts";
+import { improveDocument } from "./pipeline/improver.ts";
 import type { DocumentBlueprint, Chapter } from "./pipeline/architect.ts";
 
 const app = express();
@@ -212,6 +213,50 @@ app.get("/api/session/:sid/export/markdown", (req, res) => {
   res.setHeader("Content-Type", "text/markdown");
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
   res.send(md);
+});
+
+// ── IMPROVE (SSE progress per chapter) ──────────────────────────────────────
+app.post("/api/session/:sid/improve", async (req, res) => {
+  const session = sessions.get(req.params.sid);
+  if (!session) {
+    res.status(404).json({ error: "Sessão não encontrada." });
+    return;
+  }
+  if (!session.validationReport) {
+    res.status(400).json({ error: "Executa a validação primeiro." });
+    return;
+  }
+
+  // SSE
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+
+  const send = (obj: unknown) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
+
+  try {
+    const result = await improveDocument(
+      session.blueprint,
+      session.chapters,
+      session.validationReport,
+      (chapterId, status) => {
+        const ch = session.chapters.find((c) => c.id === chapterId);
+        send({ chapterId, title: ch?.title ?? chapterId, status });
+      }
+    );
+
+    // Clear old validation so user knows they should re-validate
+    session.validationReport = undefined;
+    saveSessions(sessions);
+
+    send({ done: true, result });
+    res.end();
+  } catch (err) {
+    console.error("improve error:", err);
+    send({ error: err instanceof Error ? err.message : "Erro ao melhorar documento." });
+    res.end();
+  }
 });
 
 app.get("/api/session/:sid/export/validation", (req, res) => {

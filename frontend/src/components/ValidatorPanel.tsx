@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { ShieldCheck, AlertTriangle, XCircle, Repeat, Lightbulb, ChevronDown, ChevronRight } from "lucide-react";
+import { useState, useRef } from "react";
+import { ShieldCheck, AlertTriangle, XCircle, Repeat, Lightbulb, ChevronDown, ChevronRight, Sparkles, CheckCircle2, Loader2, SkipForward } from "lucide-react";
 import { useProjectStore } from "../store/projectStore";
-import { validateDocument, SessionExpiredError } from "../lib/api";
+import { validateDocument, streamImproveDocument, SessionExpiredError } from "../lib/api";
 
 function ScoreRing({ score }: { score: number }) {
   const r = 36;
@@ -68,9 +68,49 @@ function IssueList({ title, items, icon, color }: {
   );
 }
 
+type ChapterProgress = {
+  chapterId: string;
+  title: string;
+  status: "pending" | "start" | "done" | "skip";
+};
+
 export function ValidatorPanel() {
   const { validationReport, sessionId, blueprint, setValidationReport, setStep, setLoading, setError, isLoading } = useProjectStore();
   const [ran, setRan] = useState(!!validationReport);
+  const [improving, setImproving] = useState(false);
+  const [improveProgress, setImproveProgress] = useState<ChapterProgress[]>([]);
+  const [improveSummary, setImproveSummary] = useState<{ improvedCount: number; skippedCount: number } | null>(null);
+  const stopImproveRef = useRef<(() => void) | null>(null);
+
+  const handleImprove = () => {
+    if (!sessionId) { setError("Sessão não encontrada."); return; }
+    setError(null);
+    setImproving(true);
+    setImproveSummary(null);
+
+    // Seed progress list from blueprint chapters
+    const chaps = blueprint?.chapters ?? [];
+    setImproveProgress(chaps.map((c) => ({ chapterId: c.id, title: c.title, status: "pending" as const })));
+
+    stopImproveRef.current = streamImproveDocument(sessionId, {
+      onChapter: (chapterId, title, status) => {
+        setImproveProgress((prev) =>
+          prev.map((p) => p.chapterId === chapterId ? { ...p, title, status } : p)
+        );
+      },
+      onDone: (result) => {
+        setImproveSummary(result);
+        setImproving(false);
+        // Clear validation report from store since backend cleared it
+        setValidationReport(null);
+        setRan(false);
+      },
+      onError: (e) => {
+        setError(e);
+        setImproving(false);
+      },
+    });
+  };
 
   const handleValidate = async () => {
     if (!sessionId) {
@@ -176,6 +216,45 @@ export function ValidatorPanel() {
             color="text-blue-400"
           />
 
+          {/* Improve progress panel */}
+          {(improving || improveSummary) && (
+            <div className="border border-zinc-800 rounded-xl overflow-hidden">
+              <div className="flex items-center gap-2 p-3 bg-zinc-900 border-b border-zinc-800">
+                <Sparkles size={15} className="text-violet-400" />
+                <span className="text-sm font-medium text-zinc-200">
+                  {improving ? "A melhorar capítulos..." : "Melhoria concluída"}
+                </span>
+                {improveSummary && (
+                  <span className="ml-auto text-xs text-zinc-500">
+                    {improveSummary.improvedCount} melhorados · {improveSummary.skippedCount} sem alterações
+                  </span>
+                )}
+              </div>
+              <ul className="divide-y divide-zinc-800/50 max-h-48 overflow-y-auto">
+                {improveProgress.map((p) => (
+                  <li key={p.chapterId} className="flex items-center gap-2 px-4 py-2 text-xs">
+                    {p.status === "pending" && <div className="w-3.5 h-3.5 rounded-full border border-zinc-700 shrink-0" />}
+                    {p.status === "start"   && <Loader2 size={14} className="text-violet-400 animate-spin shrink-0" />}
+                    {p.status === "done"    && <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />}
+                    {p.status === "skip"    && <SkipForward size={14} className="text-zinc-600 shrink-0" />}
+                    <span className={
+                      p.status === "done" ? "text-zinc-300" :
+                      p.status === "start" ? "text-violet-300" :
+                      p.status === "skip" ? "text-zinc-600" : "text-zinc-500"
+                    }>{p.title}</span>
+                  </li>
+                ))}
+              </ul>
+              {improveSummary && (
+                <div className="p-3 bg-zinc-900/50 border-t border-zinc-800">
+                  <p className="text-xs text-zinc-400 text-center">
+                    Documento melhorado. Executa a re-validação para confirmar a melhoria.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
             <button
               onClick={handleValidate}
@@ -185,11 +264,20 @@ export function ValidatorPanel() {
               Re-validar
             </button>
             <button
+              onClick={handleImprove}
+              disabled={improving || isLoading}
+              className="sm:flex-1 w-full bg-violet-600 hover:bg-violet-500 active:bg-violet-700 disabled:opacity-40 text-white font-medium
+                         rounded-xl py-3 sm:py-2 text-sm transition-colors flex items-center justify-center gap-2"
+            >
+              <Sparkles size={15} />
+              {improving ? "A melhorar..." : "Melhorar Documento"}
+            </button>
+            <button
               onClick={() => setStep("export")}
-              className="flex-1 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-medium
+              className="sm:flex-1 w-full bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-medium
                          rounded-xl py-3 sm:py-2 text-sm transition-colors"
             >
-              Exportar Documento →
+              Exportar →
             </button>
           </div>
         </div>

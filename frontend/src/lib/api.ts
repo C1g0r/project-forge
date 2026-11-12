@@ -108,6 +108,58 @@ export async function validateDocument(sid: string) {
   return data.report ?? data;
 }
 
+export function streamImproveDocument(
+  sid: string,
+  callbacks: {
+    onChapter: (chapterId: string, title: string, status: "start" | "done" | "skip") => void;
+    onDone: (result: { improvedCount: number; skippedCount: number }) => void;
+    onError: (e: string) => void;
+  }
+): () => void {
+  const { onChapter, onDone, onError } = callbacks;
+
+  // We need POST but SSE requires GET-like setup — use fetch with ReadableStream
+  let aborted = false;
+  const abort = new AbortController();
+
+  (async () => {
+    try {
+      const res = await fetch(`${BASE}/session/${sid}/improve`, {
+        method: "POST",
+        signal: abort.signal,
+      });
+
+      if (res.status === 404) { onError("Sessão expirada."); return; }
+      if (!res.ok) { const j = await res.json(); onError(j.error ?? "Erro"); return; }
+
+      const reader = res.body?.getReader();
+      if (!reader) { onError("Stream não suportado."); return; }
+
+      const decoder = new TextDecoder();
+      let buf = "";
+
+      while (!aborted) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const data = JSON.parse(line.slice(6));
+          if (data.error) { onError(data.error); return; }
+          if (data.done) { onDone(data.result); return; }
+          if (data.chapterId) onChapter(data.chapterId, data.title, data.status);
+        }
+      }
+    } catch (err) {
+      if (!aborted) onError(err instanceof Error ? err.message : "Ligação perdida.");
+    }
+  })();
+
+  return () => { aborted = true; abort.abort(); };
+}
+
 export function exportMarkdownUrl(sid: string): string {
   return `${BASE}/session/${sid}/export/markdown`;
 }
