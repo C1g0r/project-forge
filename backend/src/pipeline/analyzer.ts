@@ -31,16 +31,18 @@ export async function analyzeDocument(
   const response = await client.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 2000,
-    system: `És um arquiteto de documentos de elite. A tua função é dissecar um documento e extrair a sua arquitetura interna com precisão cirúrgica.
+    system: `You are an elite document architect. Your function is to dissect a document and extract its internal architecture with surgical precision.
 
-Analisa o documento fornecido e extrai:
-1. As camadas estruturais (identidade, missão, competências, regras, metodologia, voz, limites, exemplos, validação)
-2. O perfil de voz (tom, autoridade, estilo, frases-chave, padrões proibidos)
-3. Os padrões de organização lógica
-4. O tipo de documento
-5. O nível de profundidade
+LANGUAGE RULE: All fields in the JSON output must be written exclusively in English. No exceptions.
 
-Responde APENAS com JSON válido, sem markdown, sem explicações. Formato exacto:
+Analyse the provided document and extract:
+1. Structural layers (identity, mission, competencies, rules, methodology, voice, limits, examples, validation)
+2. Voice profile (tone, authority, style, key phrases, forbidden patterns)
+3. Logical organisation patterns
+4. Document type
+5. Depth level
+
+Respond ONLY with valid JSON, no markdown, no explanations. Exact format:
 {
   "layers": [{"name": "...", "purpose": "...", "position": 1, "dependencies": []}],
   "voice": {"tone": "...", "authority": "...", "style": "...", "keyPhrases": [], "forbiddenPatterns": []},
@@ -51,7 +53,7 @@ Responde APENAS com JSON válido, sem markdown, sem explicações. Formato exact
     messages: [
       {
         role: "user",
-        content: `Analisa este documento e extrai a sua arquitectura:\n\n${content.substring(0, 8000)}`,
+        content: `Analyse this document and extract its architecture:\n\n${content.substring(0, 8000)}`,
       },
     ],
   });
@@ -72,33 +74,33 @@ Responde APENAS com JSON válido, sem markdown, sem explicações. Formato exact
     return {
       layers: [
         {
-          name: "Identidade",
-          purpose: "Define quem é o documento",
+          name: "Identity",
+          purpose: "Defines who the document is",
           position: 1,
           dependencies: [],
         },
         {
-          name: "Missão",
-          purpose: "Define o que o documento faz",
+          name: "Mission",
+          purpose: "Defines what the document does",
           position: 2,
-          dependencies: ["Identidade"],
+          dependencies: ["Identity"],
         },
         {
-          name: "Regras",
-          purpose: "Define como o documento opera",
+          name: "Rules",
+          purpose: "Defines how the document operates",
           position: 3,
-          dependencies: ["Missão"],
+          dependencies: ["Mission"],
         },
       ],
       voice: {
-        tone: "autoritário",
-        authority: "alto",
-        style: "directivo",
+        tone: "authoritative",
+        authority: "high",
+        style: "directive",
         keyPhrases: [],
         forbiddenPatterns: [],
       },
-      patterns: ["estrutura hierárquica", "regras absolutas", "sem excepções"],
-      documentType: "sistema operacional",
+      patterns: ["hierarchical structure", "absolute rules", "no exceptions"],
+      documentType: "operational system",
       depthLevel: "extreme",
     };
   }

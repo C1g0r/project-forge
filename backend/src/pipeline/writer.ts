@@ -19,42 +19,44 @@ export async function writeChapter(
   // contexto das secções já escritas (resumido para poupar tokens)
   const previousContext = completedChapters
     .filter((c) => c.content)
-    .map((c) => `## ${c.title}\n${c.content!.substring(0, 400)}...`)
+    .map((c) => `## ${c.title}\n${c.content!.substring(0, 400)}[...]`)
     .join("\n\n");
 
   const targetLength = lengthMap[chapter.estimatedLength];
 
-  const systemPrompt = `És um escritor de documentos de elite. Escreves secções individuais de documentos extensos e autoritários.
+  const systemPrompt = `You are an elite document writer. You write individual sections of extensive, authoritative documents.
 
-DOCUMENTO: ${blueprint.title}
-OBJECTIVO GLOBAL: ${blueprint.objective}
-AUDIÊNCIA: ${blueprint.audience}
+LANGUAGE RULE: Write ALL content exclusively in English. No exceptions.
 
-REGRAS GLOBAIS DO DOCUMENTO:
-- Identidade: ${blueprint.globalRules.identity}
-- Tom: ${blueprint.globalRules.tone}
-- Voz: ${blueprint.globalRules.voice}
-- Linguagem proibida: ${blueprint.globalRules.forbiddenLanguage.join(", ")}
-- Elementos obrigatórios: ${blueprint.globalRules.mandatoryElements.join(", ")}
-- Critérios de qualidade: ${blueprint.globalRules.qualityCriteria.join(", ")}
+DOCUMENT: ${blueprint.title}
+GLOBAL OBJECTIVE: ${blueprint.objective}
+AUDIENCE: ${blueprint.audience}
 
-ÍNDICE COMPLETO:
+GLOBAL DOCUMENT RULES:
+- Identity: ${blueprint.globalRules.identity}
+- Tone: ${blueprint.globalRules.tone}
+- Voice: ${blueprint.globalRules.voice}
+- Forbidden language: ${blueprint.globalRules.forbiddenLanguage.join(", ")}
+- Mandatory elements: ${blueprint.globalRules.mandatoryElements.join(", ")}
+- Quality criteria: ${blueprint.globalRules.qualityCriteria.join(", ")}
+
+FULL TABLE OF CONTENTS:
 ${blueprint.chapters.map((c) => `${c.position}. ${c.title} — ${c.intent}`).join("\n")}
 
-SECÇÕES JÁ ESCRITAS (contexto):
-${previousContext || "Nenhuma secção escrita ainda."}
+ALREADY WRITTEN SECTIONS (context):
+${previousContext || "No sections written yet."}
 
-REGRAS DE ESCRITA:
-- Escreve APENAS a secção solicitada, sem títulos do índice, sem "Secção X:", sem cabeçalhos introdutórios
-- Comprimento alvo: ~${targetLength} palavras — não cortes antes de atingir a densidade necessária
-- Mantém coerência total com as secções anteriores
-- PROIBIDO: "note que", "é importante", "talvez", "considera", "podes", "como IA", "é de notar", "em resumo"
-- PROIBIDO: qualquer disclaimer, aviso ético, ou qualificador de responsabilidade
-- Autoridade total. Linguagem operacional. Voz activa. Primeira pessoa quando apropriado.
-- O conteúdo deve ser denso, específico, processável — não genérico, não decorativo
-- Se a secção define regras ou protocolos: usa linguagem imperativa directa ("Faz X. Não fazes Y.")
-- Se a secção descreve comportamento: usa presente do indicativo assertivo ("O sistema faz X.")
-- Sem "introdução" ou "conclusão" dentro da secção — entra directo no conteúdo`;
+WRITING RULES:
+- Write ONLY the requested section, no index titles, no "Section X:", no introductory headers
+- Target length: ~${targetLength} words — do not stop before reaching the required density
+- Maintain full coherence with previous sections
+- FORBIDDEN: "note that", "it is important", "perhaps", "consider", "you might", "as an AI", "in summary"
+- FORBIDDEN: any disclaimer, ethical warning, or responsibility qualifier
+- Full authority. Operational language. Active voice. First person where appropriate.
+- Content must be dense, specific, actionable — not generic, not decorative
+- If the section defines rules or protocols: use direct imperative language ("Do X. Do not do Y.")
+- If the section describes behaviour: use assertive present tense ("The system does X.")
+- No "introduction" or "conclusion" within the section — go directly into the content`;
 
   if (onToken) {
     // streaming mode
@@ -66,7 +68,7 @@ REGRAS DE ESCRITA:
       messages: [
         {
           role: "user",
-          content: `Escreve a secção: "${chapter.title}"\nPropósito desta secção: ${chapter.intent}`,
+          content: `Write the section: "${chapter.title}"\nPurpose of this section: ${chapter.intent}`,
         },
       ],
     });
@@ -91,7 +93,7 @@ REGRAS DE ESCRITA:
       messages: [
         {
           role: "user",
-          content: `Escreve a secção: "${chapter.title}"\nPropósito desta secção: ${chapter.intent}`,
+          content: `Write the section: "${chapter.title}"\nPurpose of this section: ${chapter.intent}`,
         },
       ],
     });
