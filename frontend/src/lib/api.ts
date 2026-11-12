@@ -21,15 +21,30 @@ export async function analyzeDocument(content: string) {
   return res.json();
 }
 
+// Wake up the backend (Render free tier hibernates after inactivity).
+// Returns true if the server is up, false if still waking.
+export async function pingBackend(): Promise<boolean> {
+  try {
+    const res = await fetch(`${BASE}/models`, { signal: AbortSignal.timeout(8000) });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function buildBlueprint(objective: string, architecture: unknown) {
   const res = await fetch(`${BASE}/architect`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ objective, architecture }),
+    signal: AbortSignal.timeout(90000), // 90s — Render pode demorar até 60s a acordar
   });
   if (!res.ok) {
-    const j = await res.json();
-    throw new Error(j.detail || j.error);
+    let detail = "";
+    try { const j = await res.json(); detail = j.detail || j.error || ""; } catch { /* ignore */ }
+    if (res.status === 429) throw new Error("Quota do modelo IA esgotada. Tenta novamente em alguns minutos.");
+    if (res.status >= 500) throw new Error(detail || "Erro no servidor. Tenta novamente.");
+    throw new Error(detail || `Erro ${res.status}`);
   }
   return res.json();
 }

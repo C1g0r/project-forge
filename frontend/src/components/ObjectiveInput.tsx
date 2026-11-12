@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Zap, ChevronRight } from "lucide-react";
 import { useProjectStore } from "../store/projectStore";
-import { buildBlueprint } from "../lib/api";
+import { buildBlueprint, pingBackend } from "../lib/api";
 
 export function ObjectiveInput() {
   const { objective, setObjective, architecture, setSession, setLoading, setError, isLoading, setStep } =
@@ -11,8 +11,17 @@ export function ObjectiveInput() {
   const handleBuild = async () => {
     if (!localObjective.trim()) return;
     setObjective(localObjective);
-    setLoading(true, "A construir arquitectura do documento...");
     setError(null);
+
+    // Ping the backend first — if it's hibernating it may take up to 60s to wake
+    setLoading(true, "A verificar servidor...");
+    const isUp = await pingBackend();
+    if (!isUp) {
+      setLoading(true, "Servidor a acordar (pode demorar até 60s)...");
+    } else {
+      setLoading(true, "A construir arquitectura do documento...");
+    }
+
     try {
       const { sessionId, blueprint } = await buildBlueprint(
         localObjective,
@@ -20,7 +29,13 @@ export function ObjectiveInput() {
       );
       setSession(sessionId, blueprint);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro desconhecido");
+      const msg = err instanceof Error ? err.message : "Erro desconhecido";
+      // Handle AbortError (timeout)
+      if (err instanceof Error && err.name === "AbortError") {
+        setError("O servidor demorou demasiado a responder. Tenta novamente — pode estar a arrancar.");
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }
