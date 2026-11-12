@@ -1,4 +1,4 @@
-import { llm, MODEL } from "../lib/llm.ts";
+import { createWithFallback, MODEL } from "../lib/llm.ts";
 import type { DocumentBlueprint, Chapter } from "./architect.ts";
 
 export interface ValidationReport {
@@ -26,7 +26,7 @@ export async function validateDocument(
     .map((c) => `## ${c.title}\n\n${c.content}`)
     .join("\n\n---\n\n");
 
-  const response = await llm.chat.completions.create({
+  const response = await createWithFallback({
     model: MODEL,
     max_tokens: 2000,
     // response_format json_object removed — not supported by all Groq models

@@ -1,4 +1,4 @@
-import { llm, MODEL } from "../lib/llm.ts";
+import { createWithFallback, MODEL } from "../lib/llm.ts";
 import type { DocumentBlueprint, Chapter } from "./architect.ts";
 import type { ValidationReport, Issue } from "./validator.ts";
 
@@ -127,16 +127,14 @@ INSTRUCTIONS:
 - Output ONLY the rewritten chapter body — no title, no headers, no preamble`;
 
     try {
-      const response = await withRetry(() =>
-        llm.chat.completions.create({
-          model: MODEL,
-          max_tokens: 2000,
-          messages: [
-            { role: "system", content: "You are an elite document editor. Fix and improve the given chapter." },
-            { role: "user", content: prompt },
-          ],
-        })
-      );
+      const response = await createWithFallback({
+        model: MODEL,
+        max_tokens: 2000,
+        messages: [
+          { role: "system", content: "You are an elite document editor. Fix and improve the given chapter." },
+          { role: "user", content: prompt },
+        ],
+      });
 
       const improved = response.choices[0].message.content ?? "";
       if (improved.trim().length > 100) {

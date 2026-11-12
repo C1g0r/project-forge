@@ -1,4 +1,4 @@
-import { llm, MODEL } from "../lib/llm.ts";
+import { createWithFallback, MODEL } from "../lib/llm.ts";
 import type { DocumentArchitecture } from "./analyzer.ts";
 
 export interface DocumentBlueprint {
@@ -88,7 +88,7 @@ export async function buildBlueprint(
   const docClass = detectDocumentClass(objective);
   const classHint = docClass === "ai_system" ? AI_SYSTEM_BLUEPRINT_HINT : "";
 
-  const response = await llm.chat.completions.create({
+  const response = await createWithFallback({
     model: MODEL,
     max_tokens: 2000,
     temperature: 0.3,

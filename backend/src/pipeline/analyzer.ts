@@ -1,4 +1,4 @@
-import { llm, MODEL_FAST } from "../lib/llm.ts";
+import { createWithFallback, MODEL_FAST } from "../lib/llm.ts";
 
 export interface DocumentArchitecture {
   layers: Layer[];
@@ -26,7 +26,7 @@ export interface VoiceProfile {
 export async function analyzeDocument(
   content: string
 ): Promise<DocumentArchitecture> {
-  const response = await llm.chat.completions.create({
+  const response = await createWithFallback({
     model: MODEL_FAST,
     max_tokens: 2000,
     temperature: 0.3,

@@ -1,4 +1,4 @@
-import { llm, MODEL } from "../lib/llm.ts";
+import { llm, MODEL, FALLBACK_MODELS } from "../lib/llm.ts";
 import type { DocumentBlueprint, Chapter } from "./architect.ts";
 
 const lengthMap = {
@@ -75,49 +75,61 @@ WRITING RULES:
     { role: "user", content: userMessage },
   ];
 
-  // retry helper — 429 rate limit gets one retry after 8s
-  async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
-    try {
-      return await fn();
-    } catch (err: unknown) {
-      const e = err as { status?: number; message?: string };
-      if (e?.status === 429) {
-        await new Promise((r) => setTimeout(r, 8000));
-        return await fn();
-      }
-      throw err;
-    }
-  }
+  // Try each model in fallback order — handles 429 TPD quota exhaustion
+  const modelsToTry = [MODEL, ...FALLBACK_MODELS.filter((m) => m !== MODEL)];
 
   if (onToken) {
-    let fullText = "";
-    const stream = await withRetry(() =>
-      llm.chat.completions.create({
-        model: MODEL,
-        max_tokens: maxTokens,
-        stream: true,
-        messages,
-      })
-    );
+    let lastErr: unknown;
+    for (const model of modelsToTry) {
+      try {
+        let fullText = "";
+        const stream = await llm.chat.completions.create({
+          model,
+          max_tokens: maxTokens,
+          stream: true,
+          messages,
+        });
 
-    for await (const chunk of stream) {
-      const delta = chunk.choices[0]?.delta?.content ?? "";
-      if (delta) {
-        fullText += delta;
-        onToken(delta);
+        for await (const chunk of stream) {
+          const delta = chunk.choices[0]?.delta?.content ?? "";
+          if (delta) {
+            fullText += delta;
+            onToken(delta);
+          }
+        }
+
+        return fullText;
+      } catch (err: unknown) {
+        const e = err as { status?: number };
+        if (e?.status === 429) {
+          console.warn(`Writer: model ${model} quota exhausted, trying next...`);
+          lastErr = err;
+          continue;
+        }
+        throw err;
       }
     }
-
-    return fullText;
+    throw lastErr;
   } else {
-    const response = await withRetry(() =>
-      llm.chat.completions.create({
-        model: MODEL,
-        max_tokens: maxTokens,
-        messages,
-      })
-    );
-
-    return response.choices[0].message.content ?? "";
+    let lastErr: unknown;
+    for (const model of modelsToTry) {
+      try {
+        const response = await llm.chat.completions.create({
+          model,
+          max_tokens: maxTokens,
+          messages,
+        });
+        return response.choices[0].message.content ?? "";
+      } catch (err: unknown) {
+        const e = err as { status?: number };
+        if (e?.status === 429) {
+          console.warn(`Writer: model ${model} quota exhausted, trying next...`);
+          lastErr = err;
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw lastErr;
   }
 }
