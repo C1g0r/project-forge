@@ -83,6 +83,7 @@ export interface ValidationReport {
   repetitions: ValidationIssue[];
   suggestions: string[];
   overallVerdict: string;
+  previousScore?: number; // presente na re-validação pós-melhoria
 }
 
 // Draft autosave: keyed by sessionId+chapterId, persisted separately

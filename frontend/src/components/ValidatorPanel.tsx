@@ -186,6 +186,21 @@ export function ValidatorPanel() {
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 sm:p-4 flex items-center gap-4 sm:gap-6">
             <ScoreRing score={validationReport.score} />
             <div className="flex-1 min-w-0">
+              {/* Delta de score após re-validação */}
+              {validationReport.previousScore !== undefined && (() => {
+                const prev = validationReport.previousScore!;
+                const curr = validationReport.score;
+                const delta = curr - prev;
+                return (
+                  <div className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full mb-2 ${
+                    delta > 0 ? "bg-emerald-500/15 text-emerald-400" :
+                    delta < 0 ? "bg-red-500/15 text-red-400" :
+                    "bg-zinc-700/50 text-zinc-400"
+                  }`}>
+                    {delta > 0 ? `↑ +${delta}` : delta < 0 ? `↓ ${delta}` : "→ sem alteração"} em relação à validação anterior ({prev}/100)
+                  </div>
+                );
+              })()}
               <p className="text-sm font-medium text-zinc-200 mb-1">Veredito</p>
               <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">{validationReport.overallVerdict}</p>
             </div>
@@ -248,7 +263,7 @@ export function ValidatorPanel() {
               {improveSummary && (
                 <div className="p-3 bg-zinc-900/50 border-t border-zinc-800">
                   <p className="text-xs text-zinc-400 text-center">
-                    Documento melhorado. Executa a re-validação para confirmar a melhoria.
+                    Documento melhorado. A re-validação irá comparar com o score anterior e confirmar as melhorias aplicadas.
                   </p>
                 </div>
               )}

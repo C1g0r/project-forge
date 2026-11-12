@@ -215,10 +215,17 @@ app.post("/api/session/:sid/validate", async (req, res) => {
     return;
   }
   try {
+    // Se já existe um report anterior (re-validação pós-melhoria), passa-o como contexto
+    const previousReport = session.validationReport;
     const report = await validateDocument(
       session.blueprint,
-      session.chapters
+      session.chapters,
+      previousReport
     );
+    // Preserva o score anterior no report para o frontend mostrar o delta
+    if (previousReport) {
+      report.previousScore = previousReport.score;
+    }
     session.validationReport = report;
     saveSessions(sessions);
     res.json({ report });
