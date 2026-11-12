@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { X, Archive, Trash2, RotateCcw, Clock } from "lucide-react";
 import { useProjectStore } from "../store/projectStore";
 import type { ChapterDraft } from "../store/projectStore";
@@ -20,6 +21,7 @@ export function SettingsPanel({ onClose }: Props) {
     chapterDrafts, sessionId, blueprint,
     updateChapter, clearChapterDrafts, setStep,
   } = useProjectStore();
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   // Only show drafts for current session
   const sessionDrafts: [string, ChapterDraft][] = Object.entries(chapterDrafts)
@@ -43,9 +45,7 @@ export function SettingsPanel({ onClose }: Props) {
   };
 
   const handleClearAll = () => {
-    if (confirm("Apagar todos os rascunhos guardados?")) {
-      clearChapterDrafts();
-    }
+    setShowClearConfirm(true);
   };
 
   return (
@@ -175,6 +175,30 @@ export function SettingsPanel({ onClose }: Props) {
           </section>
         </div>
       </div>
+
+      {/* clear drafts confirmation modal */}
+      {showClearConfirm && (
+        <div className="fixed inset-0 bg-zinc-950/70 z-[60] flex items-center justify-center p-4" onClick={() => setShowClearConfirm(false)}>
+          <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-5 max-w-sm w-full shadow-xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-sm font-semibold text-zinc-100 mb-1">Apagar rascunhos?</h3>
+            <p className="text-xs text-zinc-400 mb-4">Todos os rascunhos guardados serão apagados permanentemente.</p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setShowClearConfirm(false)}
+                className="px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 border border-zinc-700 hover:border-zinc-500 rounded transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => { setShowClearConfirm(false); clearChapterDrafts(); }}
+                className="px-3 py-1.5 text-xs text-white bg-red-600 hover:bg-red-500 rounded transition-colors"
+              >
+                Apagar tudo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -106,6 +106,7 @@ export default function App() {
 
   const [showSettings, setShowSettings] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const renderMain = () => {
     switch (step) {
@@ -173,7 +174,7 @@ export default function App() {
               <Settings size={15} />
             </button>
             <button
-              onClick={() => { if (confirm("Recomeçar? Perderás todo o progresso.")) reset(); }}
+              onClick={() => setShowResetConfirm(true)}
               title="Reset"
               className="w-7 h-7 flex items-center justify-center rounded text-zinc-600 hover:text-zinc-400 hover:bg-zinc-800 transition-colors"
             >
@@ -214,6 +215,30 @@ export default function App() {
 
       {/* settings panel */}
       {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
+
+      {/* reset confirmation modal */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 bg-zinc-950/70 z-50 flex items-center justify-center p-4" onClick={() => setShowResetConfirm(false)}>
+          <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-5 max-w-sm w-full shadow-xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-sm font-semibold text-zinc-100 mb-1">Recomeçar?</h3>
+            <p className="text-xs text-zinc-400 mb-4">Perderás todo o progresso desta sessão.</p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setShowResetConfirm(false)}
+                className="px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 border border-zinc-700 hover:border-zinc-500 rounded transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => { setShowResetConfirm(false); reset(); }}
+                className="px-3 py-1.5 text-xs text-white bg-red-600 hover:bg-red-500 rounded transition-colors"
+              >
+                Recomeçar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* mobile sidebar overlay */}
       {showSidebar && (
