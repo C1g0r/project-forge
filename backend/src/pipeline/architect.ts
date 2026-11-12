@@ -1,7 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
-import type { DocumentArchitecture } from "./analyzer.ts";
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+import { llm, MODEL } from "../lib/llm.js";
+import type { DocumentArchitecture } from "./analyzer.js";
 
 export interface DocumentBlueprint {
   title: string;
@@ -90,10 +88,15 @@ export async function buildBlueprint(
   const docClass = detectDocumentClass(objective);
   const classHint = docClass === "ai_system" ? AI_SYSTEM_BLUEPRINT_HINT : "";
 
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-6",
+  const response = await llm.chat.completions.create({
+    model: MODEL,
     max_tokens: 8192,
-    system: `You are an elite document architect. You receive an objective and, optionally, a reference architecture. You create a complete, dense, and specific structural plan for the new document.
+    temperature: 0.3,
+    response_format: { type: "json_object" },
+    messages: [
+      {
+        role: "system",
+        content: `You are an elite document architect. You receive an objective and, optionally, a reference architecture. You create a complete, dense, and specific structural plan for the new document.
 
 LANGUAGE RULE: All fields in the JSON (title, objective, audience, chapter titles, intents, globalRules) must be written exclusively in English. No exceptions.
 
@@ -116,7 +119,7 @@ Respond ONLY with valid JSON. Exact format:
     {
       "id": "ch1",
       "title": "...",
-      "intent": "O que esta secção faz e porquê está aqui — específico, não genérico",
+      "intent": "What this section does and why it is here — specific, not generic",
       "position": 1,
       "dependsOn": [],
       "estimatedLength": "long",
@@ -132,7 +135,7 @@ Respond ONLY with valid JSON. Exact format:
     "qualityCriteria": []
   }
 }`,
-    messages: [
+      },
       {
         role: "user",
         content: `Document objective: ${objective}`,
@@ -140,8 +143,7 @@ Respond ONLY with valid JSON. Exact format:
     ],
   });
 
-  const raw =
-    response.content[0].type === "text" ? response.content[0].text : "";
+  const raw = response.choices[0].message.content ?? "";
 
   // strip markdown fences: ```json ... ``` ou ``` ... ```
   let text = raw
@@ -169,9 +171,7 @@ Respond ONLY with valid JSON. Exact format:
   if (!blueprint) {
     // tentativa de reparação: fechar arrays/objectos abertos (output truncado)
     let repaired = text;
-    // remover vírgula pendente e trailing lixo após o último valor completo
     repaired = repaired.replace(/,\s*$/, "");
-    // remover última propriedade incompleta: "key": <valor incompleto sem fecha>
     repaired = repaired.replace(/,?\s*"[^"]*"\s*:\s*"[^"]*$/, "");
     repaired = repaired.replace(/,?\s*"[^"]*"\s*:\s*$/, "");
     const openBraces = (repaired.match(/\{/g) || []).length - (repaired.match(/\}/g) || []).length;

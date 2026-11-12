@@ -1,7 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { llm, MODEL } from "../lib/llm.js";
 import type { DocumentBlueprint, Chapter } from "./architect.ts";
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const lengthMap = {
   short: 300,
@@ -58,46 +56,41 @@ WRITING RULES:
 - If the section describes behaviour: use assertive present tense ("The system does X.")
 - No "introduction" or "conclusion" within the section — go directly into the content`;
 
+  const userMessage = `Write the section: "${chapter.title}"\nPurpose of this section: ${chapter.intent}`;
+
   if (onToken) {
     // streaming mode
     let fullText = "";
-    const stream = await client.messages.stream({
-      model: "claude-sonnet-4-6",
+    const stream = await llm.chat.completions.create({
+      model: MODEL,
       max_tokens: Math.min(targetLength * 6, 4000),
-      system: systemPrompt,
+      stream: true,
       messages: [
-        {
-          role: "user",
-          content: `Write the section: "${chapter.title}"\nPurpose of this section: ${chapter.intent}`,
-        },
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
       ],
     });
 
     for await (const chunk of stream) {
-      if (
-        chunk.type === "content_block_delta" &&
-        chunk.delta.type === "text_delta"
-      ) {
-        fullText += chunk.delta.text;
-        onToken(chunk.delta.text);
+      const delta = chunk.choices[0]?.delta?.content ?? "";
+      if (delta) {
+        fullText += delta;
+        onToken(delta);
       }
     }
 
     return fullText;
   } else {
     // non-streaming
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
+    const response = await llm.chat.completions.create({
+      model: MODEL,
       max_tokens: Math.min(targetLength * 6, 4000),
-      system: systemPrompt,
       messages: [
-        {
-          role: "user",
-          content: `Write the section: "${chapter.title}"\nPurpose of this section: ${chapter.intent}`,
-        },
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
       ],
     });
 
-    return response.content[0].type === "text" ? response.content[0].text : "";
+    return response.choices[0].message.content ?? "";
   }
 }

@@ -1,7 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { llm, MODEL } from "../lib/llm.js";
 import type { DocumentBlueprint, Chapter } from "./architect.ts";
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export interface ValidationReport {
   score: number; // 0-100
@@ -28,10 +26,14 @@ export async function validateDocument(
     .map((c) => `## ${c.title}\n\n${c.content}`)
     .join("\n\n---\n\n");
 
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-6",
+  const response = await llm.chat.completions.create({
+    model: MODEL,
     max_tokens: 2000,
-    system: `És um validador de documentos. Analisa documentos longos e detectas:
+    response_format: { type: "json_object" },
+    messages: [
+      {
+        role: "system",
+        content: `És um validador de documentos. Analisa documentos longos e detectas:
 - Contradições lógicas entre secções
 - Lacunas de conteúdo (algo prometido mas não entregue)
 - Repetições desnecessárias
@@ -49,7 +51,7 @@ Responde APENAS com JSON válido:
   "suggestions": ["..."],
   "overallVerdict": "..."
 }`,
-    messages: [
+      },
       {
         role: "user",
         content: `Valida este documento:\n\n${fullDocument.substring(0, 10000)}`,
@@ -57,8 +59,7 @@ Responde APENAS com JSON válido:
     ],
   });
 
-  const raw =
-    response.content[0].type === "text" ? response.content[0].text : "";
+  const raw = response.choices[0].message.content ?? "";
 
   // strip markdown fences: ```json ... ``` ou ``` ... ```
   const text = raw

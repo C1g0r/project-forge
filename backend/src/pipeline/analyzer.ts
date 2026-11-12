@@ -1,6 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+import { llm, MODEL_FAST } from "../lib/llm.js";
 
 export interface DocumentArchitecture {
   layers: Layer[];
@@ -28,10 +26,15 @@ export interface VoiceProfile {
 export async function analyzeDocument(
   content: string
 ): Promise<DocumentArchitecture> {
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-6",
+  const response = await llm.chat.completions.create({
+    model: MODEL_FAST,
     max_tokens: 2000,
-    system: `You are an elite document architect. Your function is to dissect a document and extract its internal architecture with surgical precision.
+    temperature: 0.3,
+    response_format: { type: "json_object" },
+    messages: [
+      {
+        role: "system",
+        content: `You are an elite document architect. Your function is to dissect a document and extract its internal architecture with surgical precision.
 
 LANGUAGE RULE: All fields in the JSON output must be written exclusively in English. No exceptions.
 
@@ -50,7 +53,7 @@ Respond ONLY with valid JSON, no markdown, no explanations. Exact format:
   "documentType": "...",
   "depthLevel": "extreme"
 }`,
-    messages: [
+      },
       {
         role: "user",
         content: `Analyse this document and extract its architecture:\n\n${content.substring(0, 8000)}`,
@@ -58,8 +61,7 @@ Respond ONLY with valid JSON, no markdown, no explanations. Exact format:
     ],
   });
 
-  const raw =
-    response.content[0].type === "text" ? response.content[0].text : "";
+  const raw = response.choices[0].message.content ?? "";
 
   // strip markdown fences: ```json ... ``` ou ``` ... ```
   let text = raw
