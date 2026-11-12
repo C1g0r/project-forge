@@ -170,7 +170,7 @@ export const useProjectStore = create<ProjectState>()(
         if (idx >= STEP_ORDER.length - 1) return false;
         // Guard: only allow forward if current step has sufficient data
         switch (step) {
-          case "upload": return referenceText.length > 50;
+          case "upload": return referenceText === "__SKIP__" || referenceText.length > 50;
           case "objective": return objective.length > 10;
           case "blueprint": return !!sessionId && !!blueprint;
           case "writing": return !!blueprint?.chapters.some((c) => c.status === "done");

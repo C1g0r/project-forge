@@ -25,7 +25,7 @@ export function ObjectiveInput() {
     try {
       const { sessionId, blueprint } = await buildBlueprint(
         localObjective,
-        architecture
+        architecture ?? null
       );
       setSession(sessionId, blueprint);
     } catch (err) {

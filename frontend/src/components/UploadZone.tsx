@@ -42,6 +42,7 @@ export function UploadZone() {
   };
 
   const handleSkip = () => {
+    setReferenceText("__SKIP__"); // marcador: sem referência — permite canGoForward
     setStep("objective");
   };
 
