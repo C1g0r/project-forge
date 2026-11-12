@@ -56,15 +56,18 @@ export async function improveDocument(
 ): Promise<ImprovementResult> {
   const result: ImprovementResult = { improvedCount: 0, skippedCount: 0, details: [] };
 
-  // Collect all issues
+  // Collect all issues for secondary context
   const allIssues: Issue[] = [
     ...report.contradictions,
     ...report.gaps,
     ...report.repetitions,
   ];
 
-  // Build suggestion context (always applied to all rewrites)
-  const globalSuggestions = report.suggestions.join("\n- ");
+  // Suggestions are the PRIMARY driver — format them clearly
+  const hasSuggestions = report.suggestions.length > 0;
+  const suggestionsList = report.suggestions
+    .map((s, i) => `${i + 1}. ${s}`)
+    .join("\n");
 
   for (const chapter of chapters) {
     if (!chapter.content || chapter.status !== "done") {
@@ -74,10 +77,9 @@ export async function improveDocument(
     }
 
     const affectedIssues = chapterIsAffected(chapter, allIssues);
-    const hasGlobalSuggestions = report.suggestions.length > 0;
 
     // Skip chapters with no specific issues AND no global suggestions
-    if (affectedIssues.length === 0 && !hasGlobalSuggestions) {
+    if (affectedIssues.length === 0 && !hasSuggestions) {
       result.skippedCount++;
       result.details.push({ chapterId: chapter.id, title: chapter.title, improved: false, reason: "no issues found" });
       onProgress?.(chapter.id, "skip");
@@ -86,26 +88,31 @@ export async function improveDocument(
 
     onProgress?.(chapter.id, "start");
 
+    // Issues are secondary — only shown if present for this chapter
     const issueContext = affectedIssues.length > 0
-      ? `\nSPECIFIC ISSUES IN THIS CHAPTER:\n${affectedIssues.map(
-          (i) => `- [${i.severity.toUpperCase()}] ${i.description}\n  FIX: ${i.suggestion}`
+      ? `\nADDITIONAL ISSUES DETECTED IN THIS CHAPTER (fix these too):\n${affectedIssues.map(
+          (i) => `- [${i.severity.toUpperCase()}] ${i.description} → ${i.suggestion}`
         ).join("\n")}`
       : "";
 
-    const prompt = `You are rewriting a chapter of an authoritative document to fix quality issues.
+    const prompt = `You are improving a chapter of an authoritative document based on a quality review.
 
 DOCUMENT: ${blueprint.title}
 OBJECTIVE: ${blueprint.objective}
 AUDIENCE: ${blueprint.audience}
 
-GLOBAL RULES:
+DOCUMENT RULES:
 - Identity: ${blueprint.globalRules.identity}
 - Tone: ${blueprint.globalRules.tone}
 - Voice: ${blueprint.globalRules.voice}
 - Forbidden: ${blueprint.globalRules.forbiddenLanguage.join(", ")}
 
-GLOBAL IMPROVEMENT SUGGESTIONS TO APPLY:
-- ${globalSuggestions || "None"}
+━━━ PRIMARY TASK — APPLY THESE SUGGESTIONS ━━━
+The validator reviewed the full document and produced these improvement suggestions.
+Apply every suggestion that is relevant to this chapter:
+
+${suggestionsList || "No suggestions — focus on fixing the issues below."}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${issueContext}
 
 CURRENT CHAPTER CONTENT:
@@ -113,11 +120,10 @@ CURRENT CHAPTER CONTENT:
 ${chapter.content}
 
 INSTRUCTIONS:
-- Rewrite this chapter fixing ALL issues listed above
+- Rewrite this chapter applying all relevant suggestions above
+- If a suggestion doesn't apply to this chapter, skip it — do not force it
 - Keep the same title and approximate length
-- Do NOT change topics or invent new content not implied by the original
-- Remove repetitions, resolve contradictions, fill gaps where content is clearly implied
-- Maintain full coherence with the document's tone and voice
+- Do NOT invent new topics or change the chapter's purpose
 - Output ONLY the rewritten chapter body — no title, no headers, no preamble`;
 
     try {
