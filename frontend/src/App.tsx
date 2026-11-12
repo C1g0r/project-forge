@@ -230,7 +230,7 @@ export default function App() {
                 Cancelar
               </button>
               <button
-                onClick={() => { setShowResetConfirm(false); reset(); }}
+                onClick={() => { setShowResetConfirm(false); reset(); window.location.reload(); }}
                 className="px-3 py-1.5 text-xs text-white bg-red-600 hover:bg-red-500 rounded transition-colors"
               >
                 Recomeçar

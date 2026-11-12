@@ -223,7 +223,12 @@ export const useProjectStore = create<ProjectState>()(
 
       clearChapterDrafts: () => set({ chapterDrafts: {} }),
 
-      reset: () => set(initialState),
+      reset: () => {
+        // Set state to initial values in memory
+        set(initialState);
+        // Also wipe the persisted storage so the next page load starts clean
+        useProjectStore.persist.clearStorage();
+      },
     }),
     {
       name: "forge-project",
