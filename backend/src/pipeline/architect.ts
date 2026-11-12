@@ -110,7 +110,9 @@ RULES:
 - No disclaimers, no "perhaps", no hedging in the plan
 - The title must be specific and authoritative
 
-Respond ONLY with valid JSON. Exact format:
+OUTPUT RULE: Output ONLY the raw JSON object. No preamble. No explanation. No markdown. No <think> blocks. No XML tags. Start your response with { and end with }. Nothing before {. Nothing after }.
+
+Exact JSON format:
 {
   "title": "...",
   "objective": "...",
@@ -145,13 +147,26 @@ Respond ONLY with valid JSON. Exact format:
 
   const raw = response.choices[0].message.content ?? "";
 
-  // strip markdown fences: ```json ... ``` ou ``` ... ```
-  let text = raw
+  // 1. strip <think>...</think> blocks (Qwen/DeepSeek thinking models)
+  let text = raw.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+
+  // 2. strip markdown fences: ```json ... ``` ou ``` ... ```
+  text = text
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```\s*$/, "")
     .trim();
 
-  // fallback: extrair desde o primeiro { até ao último } (handle texto extra antes/depois)
+  // 3. strip XML-like wrappers: <json>...</json>, 【json】...【/json】, <output>...</output>
+  text = text
+    .replace(/^<json>\s*/i, "")
+    .replace(/\s*<\/json>\s*$/i, "")
+    .replace(/^【json】\s*/i, "")
+    .replace(/\s*【\/json】\s*$/i, "")
+    .replace(/^<output>\s*/i, "")
+    .replace(/\s*<\/output>\s*$/i, "")
+    .trim();
+
+  // 4. extrair desde o primeiro { até ao último } (handle texto extra antes/depois)
   const firstBrace = text.indexOf("{");
   const lastBrace = text.lastIndexOf("}");
   if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
@@ -182,6 +197,8 @@ Respond ONLY with valid JSON. Exact format:
   }
 
   if (!blueprint) {
+    // log raw para debug nos Render logs
+    console.error("[architect] JSON parse failed. Raw output (first 500):", raw.substring(0, 500));
     throw new Error(`Architect falhou a parsear JSON: ${text.substring(0, 300)}`);
   }
 
