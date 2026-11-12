@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import fs from "fs";
 import path from "path";
+import { llm, MODEL, MODEL_FAST } from "./lib/llm.ts";
 import { analyzeDocument } from "./pipeline/analyzer.ts";
 import { buildBlueprint } from "./pipeline/architect.ts";
 import { writeChapter } from "./pipeline/writer.ts";
@@ -68,6 +69,19 @@ const sessions = loadSessions();
 function sessionId(): string {
   return Math.random().toString(36).substring(2, 10);
 }
+
+// ── DIAGNOSTIC: lista modelos disponíveis no Groq ───────────────────────────
+app.get("/api/models", async (_req, res) => {
+  try {
+    const response = await llm.models.list();
+    const models = response.data.map((m) => ({ id: m.id, created: (m as { created?: number }).created }));
+    res.json({ models, current: { MODEL, MODEL_FAST } });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("models list error:", msg);
+    res.status(500).json({ error: msg });
+  }
+});
 
 // ── ANALYZE ─────────────────────────────────────────────────────────────────
 app.post("/api/analyze", async (req, res) => {
@@ -162,10 +176,14 @@ app.get("/api/session/:sid/write/:chapterId", async (req, res) => {
     res.write(`data: ${JSON.stringify({ done: true, content: fullContent })}\n\n`);
     res.end();
   } catch (err) {
-    console.error("write error:", err);
+    const errMsg = err instanceof Error ? err.message : String(err);
+    const errDetail = (() => {
+      try { return JSON.stringify(err); } catch { return String(err); }
+    })();
+    console.error("write error:", errMsg, errDetail);
     chapter.status = "pending";
     saveSessions(sessions);
-    res.write(`data: ${JSON.stringify({ error: "Erro ao escrever capítulo." })}\n\n`);
+    res.write(`data: ${JSON.stringify({ error: `Erro ao escrever capítulo: ${errMsg}` })}\n\n`);
     res.end();
   }
 });

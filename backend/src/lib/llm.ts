@@ -7,8 +7,9 @@ export const llm = new OpenAI({
   baseURL: "https://api.groq.com/openai/v1",
 });
 
-// Modelo principal — GPT OSS 120B disponível no free tier do Groq
-export const MODEL = "openai/gpt-oss-120b";
+// Modelo override via env var — permite mudar sem redeploy
+// Set GROQ_MODEL=<model-id> em Render environment variables
+export const MODEL = process.env.GROQ_MODEL ?? "meta-llama/llama-4-scout-17b-16e-instruct";
 
-// Modelo leve para analyze — GPT OSS 20B, mais rápido
-export const MODEL_FAST = "openai/gpt-oss-20b";
+// Modelo leve para analyze — mais rápido, menos tokens
+export const MODEL_FAST = process.env.GROQ_MODEL_FAST ?? "meta-llama/llama-4-scout-17b-16e-instruct";
