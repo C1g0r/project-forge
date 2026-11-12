@@ -9,9 +9,13 @@ import { exportToMarkdown } from "./export/markdown.ts";
 import type { DocumentBlueprint, Chapter } from "./pipeline/architect.ts";
 
 const app = express();
+const defaultOrigins = [
+  "http://localhost:5173",
+  "https://project-forge-sandy.vercel.app",
+];
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",").map((o) => o.trim())
-  : ["http://localhost:5173"];
+  : defaultOrigins;
 app.use(cors({ origin: allowedOrigins }));
 app.use(express.json({ limit: "10mb" }));
 
