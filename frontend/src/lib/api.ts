@@ -22,13 +22,14 @@ export async function analyzeDocument(content: string) {
 }
 
 // Wake up the backend (Render free tier hibernates after inactivity).
-// Returns true if the server is up, false if still waking.
+// Returns true if the server responded quickly (already up), false if hibernating.
+// Either way, the server will eventually respond — this is just for UX feedback.
 export async function pingBackend(): Promise<boolean> {
   try {
-    const res = await fetch(`${BASE}/models`, { signal: AbortSignal.timeout(8000) });
-    return res.ok;
+    const res = await fetch(`${BASE}/models`, { signal: AbortSignal.timeout(5000) });
+    return res.ok || res.status < 500; // any HTTP response = server is up
   } catch {
-    return false;
+    return false; // timeout or network error = server is waking up
   }
 }
 

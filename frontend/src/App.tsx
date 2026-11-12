@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useProjectStore } from "./store/projectStore";
 import { UploadZone } from "./components/UploadZone";
 import { ObjectiveInput } from "./components/ObjectiveInput";
@@ -23,6 +23,46 @@ const STEPS = [
 ] as const;
 
 type StepId = (typeof STEPS)[number]["id"];
+
+function LoadingOverlay({ message, onCancel }: { message: string; onCancel: () => void }) {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    const t = setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const isLong = elapsed >= 10;
+  const isVeryLong = elapsed >= 25;
+
+  const statusMsg = isVeryLong
+    ? "Servidor em hibernação — pode demorar até 60s na primeira utilização do dia"
+    : isLong
+    ? "A aguardar o servidor... pode estar a arrancar"
+    : message || "A processar...";
+
+  return (
+    <div className="fixed inset-0 bg-zinc-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 flex flex-col items-center gap-4 w-full max-w-sm">
+        <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+        <div className="text-center space-y-1">
+          <p className="text-sm text-zinc-300">{statusMsg}</p>
+          {elapsed >= 5 && (
+            <p className="text-xs text-zinc-600">{elapsed}s</p>
+          )}
+        </div>
+        {elapsed >= 15 && (
+          <button
+            onClick={onCancel}
+            className="text-xs text-zinc-500 hover:text-zinc-300 underline underline-offset-2 transition-colors"
+          >
+            Cancelar e tentar novamente
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function StepBar({ current, onStepClick }: { current: StepId; onStepClick: (id: StepId) => void }) {
   const currentIdx = STEP_ORDER.indexOf(current);
@@ -166,12 +206,10 @@ export default function App() {
 
       {/* loading overlay */}
       {isLoading && (
-        <div className="fixed inset-0 bg-zinc-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 flex flex-col items-center gap-3 w-full max-w-xs">
-            <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm text-zinc-300 text-center">{loadingMessage || "A processar..."}</p>
-          </div>
-        </div>
+        <LoadingOverlay
+          message={loadingMessage}
+          onCancel={() => useProjectStore.getState().setLoading(false)}
+        />
       )}
 
       {/* settings panel */}
