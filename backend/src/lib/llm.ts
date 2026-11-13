@@ -1,36 +1,52 @@
 import OpenAI from "openai";
 
-// Groq — OpenAI-compatible API, free tier
-// https://console.groq.com → criar API key gratuita
+// Provider: coarena.ai — OpenAI-compatible proxy para Claude
+// Env vars necessárias em Render:
+//   ANTHROPIC_BASE_URL   = https://coarena.ai/api
+//   ANTHROPIC_AUTH_TOKEN = coa_xxxx...  (a tua chave coarena)
+//
+// Fallback para Groq se ANTHROPIC_BASE_URL não estiver definido:
+//   GROQ_API_KEY = gsk_xxxx...
+
+const useCoarena = !!process.env.ANTHROPIC_BASE_URL;
+
 export const llm = new OpenAI({
-  apiKey: process.env.GROQ_API_KEY ?? "",
-  baseURL: "https://api.groq.com/openai/v1",
+  apiKey:  useCoarena
+    ? (process.env.ANTHROPIC_AUTH_TOKEN ?? "")
+    : (process.env.GROQ_API_KEY ?? ""),
+  baseURL: useCoarena
+    ? process.env.ANTHROPIC_BASE_URL
+    : "https://api.groq.com/openai/v1",
 });
 
-// Modelo override via env var — permite mudar sem redeploy
-// Set GROQ_MODEL=<model-id> em Render environment variables
-// IDs confirmados nesta instância Groq (nov 2026):
-//   openai/gpt-oss-120b   — GPT OSS 120B (8K TPM, 1000 RPD, 200K TPD free)
-//   openai/gpt-oss-20b    — GPT OSS 20B  (mais rápido, quota separada)
-//   qwen/qwen3.8-27b      — Qwen 3.8-27B (alternativa)
-export const MODEL = process.env.GROQ_MODEL ?? "openai/gpt-oss-20b";
+// Modelo principal — override via env var ANTHROPIC_MODEL ou GROQ_MODEL
+// Modelos coarena.ai (Claude via proxy):
+//   claude-opus-5-5        — máxima qualidade
+//   claude-sonnet-5-5      — equilíbrio qualidade/velocidade
+//   claude-haiku-5-5       — mais rápido
+// Modelos Groq (fallback):
+//   openai/gpt-oss-120b, openai/gpt-oss-20b, qwen/qwen3.8-27b
+export const MODEL = useCoarena
+  ? (process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5-5")
+  : (process.env.GROQ_MODEL ?? "openai/gpt-oss-20b");
 
-// Modelo leve para analyze — usa 20b para quota separada do 120b
-export const MODEL_FAST = process.env.GROQ_MODEL_FAST ?? "openai/gpt-oss-20b";
+export const MODEL_FAST = useCoarena
+  ? (process.env.ANTHROPIC_MODEL_FAST ?? "claude-haiku-5-5")
+  : (process.env.GROQ_MODEL_FAST ?? "openai/gpt-oss-20b");
 
-// Lista de modelos de fallback quando o primário estiver com quota esgotada
-export const FALLBACK_MODELS = ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "qwen/qwen3.8-27b"];
+// Fallback chain — só activo no modo Groq
+export const FALLBACK_MODELS: string[] = useCoarena
+  ? [] // coarena não precisa de fallback chain (quota por token, não por modelo)
+  : ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "qwen/qwen3.8-27b"];
 
-// Limites de output por modelo (OTPM / max_tokens máximo seguro)
-// Qwen free tier: 1000 OTPM — nunca pedir mais do que isso
+// Limites de output por modelo
 const MODEL_MAX_OUTPUT: Record<string, number> = {
-  "qwen/qwen3.8-27b": 900, // OTPM limit 1000 → margem de segurança
+  "qwen/qwen3.8-27b": 900, // Groq free tier OTPM limit
 };
 
 /**
- * Wrapper para criar completions com fallback automático em caso de 429 TPD.
- * Tenta cada modelo da lista até um ter quota disponível.
- * Aplica limites de max_tokens por modelo para evitar rejeição de OTPM.
+ * Wrapper para criar completions com fallback automático em caso de 429 TPD (Groq).
+ * Em modo coarena: tenta apenas o modelo configurado, sem fallback.
  */
 export async function createWithFallback(
   params: Parameters<typeof llm.chat.completions.create>[0]
@@ -39,7 +55,6 @@ export async function createWithFallback(
   let lastErr: unknown;
   for (const model of models) {
     try {
-      // Aplica cap de max_tokens específico do modelo se necessário
       const modelCap = MODEL_MAX_OUTPUT[model];
       const requestedTokens = (params as { max_tokens?: number }).max_tokens;
       const cappedTokens = modelCap && requestedTokens && requestedTokens > modelCap
@@ -50,13 +65,13 @@ export async function createWithFallback(
       return await (llm.chat.completions.create as any)({ ...params, model, max_tokens: cappedTokens }) as any;
     } catch (err: unknown) {
       const e = err as { status?: number; message?: string };
-      if (e?.status === 429) {
+      if (e?.status === 429 && FALLBACK_MODELS.length > 0) {
         console.warn(`Model ${model} quota exhausted (429), trying next fallback...`);
         lastErr = err;
         continue;
       }
-      throw err; // non-429 error — propagate immediately
+      throw err;
     }
   }
-  throw lastErr; // all models exhausted
+  throw lastErr;
 }
