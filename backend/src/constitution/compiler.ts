@@ -19,6 +19,7 @@ export interface CompileResult {
   sectionCount: number;
   wordCount: number;
   missingModules: string[];
+  placeholderViolations: string[];  // [NOT SET], [UNNAMED] etc found in output
 }
 
 // Canonical section order for the final constitution document
@@ -123,6 +124,74 @@ function detectMissingModules(outputs: ModuleOutput[]): string[] {
   return coreMandatory.filter(m => !presentModules.has(m));
 }
 
+/**
+ * Deduplicates repeated section header blocks.
+ * When two sections generate the same ======= header + title, the second occurrence is stripped.
+ * Prevents the compiled document from having repeated "IDENTITY & PROFILE" or similar headers.
+ */
+function deduplicateSections(content: string): string {
+  const lines = content.split('\n');
+  const seenHeaders = new Set<string>();
+  const result: string[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Detect separator line (40+ = chars)
+    if (/^={40,}$/.test(line.trim())) {
+      // Look ahead: separator, then title, then separator
+      const nextLine = lines[i + 1]?.trim() ?? '';
+      const afterNext = lines[i + 2]?.trim() ?? '';
+
+      if (nextLine && /^={40,}$/.test(afterNext)) {
+        // This is a section header block: === / TITLE / ===
+        const headerKey = nextLine.toUpperCase().replace(/\s+/g, ' ');
+
+        if (seenHeaders.has(headerKey)) {
+          // Skip this entire header block (3 lines: sep + title + sep)
+          i += 3;
+          // Also skip any immediately following blank lines
+          while (i < lines.length && lines[i].trim() === '') i++;
+          continue;
+        }
+
+        seenHeaders.add(headerKey);
+      }
+    }
+
+    result.push(line);
+    i++;
+  }
+
+  return result.join('\n');
+}
+
+/**
+ * Checks the compiled document for placeholder text that indicates
+ * required inputs were never filled in. Returns list of violations.
+ */
+function detectPlaceholders(content: string): string[] {
+  const violations: string[] = [];
+  const placeholderPatterns = [
+    { re: /\[NOT SET\]/g, label: '[NOT SET] — required input was left empty (likely Greeting Text)' },
+    { re: /\[UNNAMED\]/g, label: '[UNNAMED] — AI name was not provided' },
+    { re: /\[UNKNOWN\]/g, label: '[UNKNOWN] — Origin number was not provided' },
+    { re: /\[not specified\]/gi, label: '[not specified] — required configuration field left empty' },
+    { re: /\[TBD\]/gi, label: '[TBD] — placeholder not replaced' },
+    { re: /\[FILL\]/gi, label: '[FILL] — placeholder not replaced' },
+  ];
+
+  for (const { re, label } of placeholderPatterns) {
+    const matches = content.match(re);
+    if (matches && matches.length > 0) {
+      violations.push(`${label} (${matches.length} occurrence${matches.length > 1 ? 's' : ''})`);
+    }
+  }
+
+  return violations;
+}
+
 function countWords(text: string): number {
   return text.split(/\s+/).filter(w => w.length > 0).length;
 }
@@ -145,6 +214,7 @@ export function compileConstitution(req: CompileRequest): CompileResult {
       sectionCount: 0,
       wordCount: 0,
       missingModules: detectMissingModules([]),
+      placeholderViolations: [],
     };
   }
 
@@ -173,7 +243,12 @@ export function compileConstitution(req: CompileRequest): CompileResult {
   parts.push(`END OF OPERATIONAL CONSTITUTION — ${projectName.toUpperCase()}\n`);
   parts.push(`${SECTION_SEPARATORS}\n`);
 
-  const document = parts.join('\n');
+  // Run deduplication pass — removes repeated section header blocks
+  const rawDocument = parts.join('\n');
+  const document = deduplicateSections(rawDocument);
+
+  // Check for placeholder violations after dedup
+  const placeholderViolations = detectPlaceholders(document);
 
   return {
     document,
@@ -181,6 +256,7 @@ export function compileConstitution(req: CompileRequest): CompileResult {
     sectionCount: countSections(document),
     wordCount: countWords(document),
     missingModules,
+    placeholderViolations,
   };
 }
 
@@ -194,4 +270,43 @@ export function compilePreview(req: CompileRequest): CompileResult {
   }));
 
   return compileConstitution({ ...req, outputs: truncated });
+}
+
+// Utility — format adversarial report as markdown section for injection
+export function formatAdversarialAsMarkdown(report: {
+  aiName: string;
+  tests: Array<{ category: string; attack: string; expectedDefense: string; passIfDocument: string }>;
+  categoryBreakdown: Record<string, number>;
+}): string {
+  const lines: string[] = [
+    `${SECTION_SEPARATORS}`,
+    `ADVERSARIAL TEST SUITE — ${report.aiName.toUpperCase()}`,
+    `${SECTION_SEPARATORS}`,
+    '',
+    'This section documents the adversarial attack scenarios this constitution must withstand.',
+    'Each test case defines the attack vector and the required defensive response.',
+    '',
+    '## ATTACK CATEGORY DISTRIBUTION',
+    '',
+  ];
+
+  for (const [cat, count] of Object.entries(report.categoryBreakdown)) {
+    lines.push(`- **${cat.replace(/_/g, ' ').toUpperCase()}**: ${count} test${count !== 1 ? 's' : ''}`);
+  }
+
+  lines.push('', `**Total: ${report.tests.length} adversarial scenarios**`, '');
+  lines.push('## TEST CASES', '');
+
+  report.tests.forEach((test, idx) => {
+    lines.push(`### Test ${idx + 1}: ${test.category.replace(/_/g, ' ').toUpperCase()}`);
+    lines.push('');
+    lines.push(`**Attack vector:** ${test.attack}`);
+    lines.push('');
+    lines.push(`**Required defense:** ${test.expectedDefense}`);
+    lines.push('');
+    lines.push(`**Passes if document contains:** ${test.passIfDocument}`);
+    lines.push('');
+  });
+
+  return lines.join('\n');
 }

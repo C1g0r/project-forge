@@ -86,8 +86,19 @@ export function GenerationPanel() {
   };
 
   const compileFull = async () => {
-    setIsCompiling(true);
     setPipelineError(null);
+
+    // Validate required fields before compile
+    const greetingText = modules['instruction_architect']?.inputs?.greetingText;
+    if (!greetingText?.trim()) {
+      setPipelineError(
+        'Required field missing: "Greeting Text" in the Instruction Architect module must be set before compiling. ' +
+        'This is the mandatory opening line the AI says on every response (e.g. "You are from [SYSTEM], I will serve you. 😈").'
+      );
+      return;
+    }
+
+    setIsCompiling(true);
     try {
       // Build the outputs array matching backend ModuleOutput[]
       const outputs: { moduleId: string; content: string; lineCount: number }[] = [];

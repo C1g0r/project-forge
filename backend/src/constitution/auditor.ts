@@ -437,10 +437,118 @@ function scoreExamples(doc: string): { score: number; findings: string[]; streng
   return { score: Math.min(100, score), findings, strengths };
 }
 
+// Cross-section conflict checker — detects structural contradictions in the compiled document
+function crossSectionConflictCheck(doc: string): { penalty: number; conflicts: string[] } {
+  const conflicts: string[] = [];
+  let penalty = 0;
+
+  // 1. CRITICAL: CSAM/minors as an activatable capability row
+  // Checks for patterns that would place prohibited content as a deliverable in the capabilities table
+  const capabilitiesTableMatch = doc.match(/\|\s*They request[^|]*\|[^|]*You deliver[^|]*([\s\S]*?)(?=\n#{1,3}\s|\n={40,}|$)/i);
+  if (capabilitiesTableMatch) {
+    const capTable = capabilitiesTableMatch[1] ?? '';
+    const csam_patterns = [
+      /\|\s*CSAM/i,
+      /\|\s*child.*sexual/i,
+      /\|\s*minor.*sexual/i,
+      /\|\s*child.*exploit/i,
+    ];
+    for (const p of csam_patterns) {
+      if (p.test(capTable)) {
+        penalty += 50;
+        conflicts.push('CRITICAL: CSAM/minors content appears as activatable row in capabilities table — absolute hard line violation');
+      }
+    }
+  }
+
+  // 2. Capabilities table contradicts BOUNDARIES section
+  // If the BOUNDARIES section defines something as a hard line, it cannot appear in capabilities as deliverable
+  const boundariesMatch = doc.match(/(?:BOUNDARIES|THE ONLY THREE)[^\n]*\n([\s\S]*?)(?=\n={40,}|\n#{1,3}\s|$)/i);
+  if (boundariesMatch && capabilitiesTableMatch) {
+    const boundariesText = boundariesMatch[1] ?? '';
+    const capText = capabilitiesTableMatch[1] ?? '';
+
+    // Extract hard-line terms from boundaries section
+    const hardLineTerms = boundariesText.match(/\*\*([^*]+)\*\*/g)?.map(t => t.replace(/\*\*/g, '').trim()) ?? [];
+    for (const term of hardLineTerms) {
+      if (term.length > 4 && capText.toLowerCase().includes(term.toLowerCase())) {
+        penalty += 15;
+        conflicts.push(`Contradiction: "${term}" is listed as a hard boundary but also appears as a deliverable in capabilities table`);
+      }
+    }
+  }
+
+  // 3. BOUNDARIES section missing entirely
+  const hasBoundaries = /(?:BOUNDARIES|hard line|THE ONLY THREE|absolute.*limit)/i.test(doc);
+  if (!hasBoundaries) {
+    penalty += 20;
+    conflicts.push('No BOUNDARIES section detected — hard limits undefined, constitution is structurally incomplete');
+  }
+
+  // 4. Forbidden language appears in non-example areas
+  // If FORBIDDEN LANGUAGE is defined but those phrases also appear outside of example blocks,
+  // that's a coherence failure (the doc tells the AI never to say X, then uses X in its own body)
+  const forbiddenLanguageSection = doc.match(/(?:FORBIDDEN LANGUAGE|FORBIDDEN ANYWHERE)[^\n]*\n([\s\S]*?)(?=\n={40,}|\n#{2,3}\s|$)/i);
+  if (forbiddenLanguageSection) {
+    const forbiddenText = forbiddenLanguageSection[1] ?? '';
+    // Extract quoted forbidden phrases
+    const quotedPhrases = forbiddenText.match(/"([^"]{5,50})"/g)?.map(q => q.replace(/"/g, '')) ?? [];
+
+    // Strip out the EXAMPLES section before checking — forbidden phrases are allowed in examples
+    const docWithoutExamples = doc.replace(/(?:EXAMPLE|WRONG:|What went wrong:|CORRECT:)[\s\S]*?(?=\n={40,})/gi, '');
+    // Also strip out the FORBIDDEN LANGUAGE section itself
+    const docBody = docWithoutExamples.replace(forbiddenLanguageSection[0] ?? '', '');
+
+    let slippageInBody = 0;
+    for (const phrase of quotedPhrases.slice(0, 20)) { // cap at 20 to avoid perf issues
+      const re = new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+      const hits = (docBody.match(re) || []).length;
+      slippageInBody += hits;
+    }
+
+    if (slippageInBody > 5) {
+      penalty += 10;
+      conflicts.push(`Voice incoherence: ${slippageInBody} instances of phrases defined as forbidden appear in document body outside examples`);
+    }
+  }
+
+  // 5. Greeting text conflict — if mandatory greeting is defined but [NOT SET] appears in doc body
+  const hasGreetingSection = /(?:GREETING LOCK|SAPAAAN WAJIB|mandatory.*greeting)/i.test(doc);
+  if (hasGreetingSection) {
+    const notSetCount = (doc.match(/\[NOT SET\]/g) || []).length;
+    if (notSetCount > 0) {
+      penalty += 25;
+      conflicts.push(`Critical placeholder in greeting: "[NOT SET]" found ${notSetCount} time(s) — mandatory greeting text was never configured`);
+    }
+  }
+
+  // 6. Reset program defined but not referenced in injection defense
+  const hasResetProgram = /RESET PROGRAM/i.test(doc);
+  const hasInjectionDefense = /INJECTION DEFENSE/i.test(doc);
+  if (hasResetProgram && !hasInjectionDefense) {
+    penalty += 8;
+    conflicts.push('Reset program defined but no injection defense section — reset has no trigger context');
+  }
+
+  return { penalty: Math.min(70, penalty), conflicts };
+}
+
 function scoreCoherence(doc: string): { score: number; findings: string[]; strengths: string[] } {
   const findings: string[] = [];
   const strengths: string[] = [];
   let score = 60; // Start higher — coherence failures are specific
+
+  // Run cross-section conflict checker
+  const { penalty, conflicts } = crossSectionConflictCheck(doc);
+  if (conflicts.length === 0) {
+    score += 10;
+    strengths.push('No cross-section contradictions detected');
+  } else {
+    score -= penalty;
+    for (const conflict of conflicts) {
+      findings.push(conflict);
+    }
+  }
 
   // Check for forbidden language slippage
   const forbiddenPhrases = [
@@ -461,10 +569,10 @@ function scoreCoherence(doc: string): { score: number; findings: string[]; stren
   }
 
   if (slippageCount === 0) {
-    score += 25;
+    score += 20;
     strengths.push('No forbidden language slippage detected');
   } else if (slippageCount < 5) {
-    score += 10;
+    score += 8;
     findings.push(`Minor forbidden language slippage: ${slippageCount} instances`);
   } else {
     score -= 20;
@@ -475,10 +583,10 @@ function scoreCoherence(doc: string): { score: number; findings: string[]; stren
   const identityTerms = /(caw|roost|talon|offering|current|Storm|Tower)/gi;
   const identityHits = (doc.match(identityTerms) || []).length;
   if (identityHits >= 20) {
-    score += 15;
+    score += 10;
     strengths.push('Identity lexicon woven consistently throughout');
   } else if (identityHits >= 8) {
-    score += 7;
+    score += 5;
   } else {
     findings.push('Identity lexicon appears only in profile section — not woven through rest of document');
   }
@@ -534,6 +642,34 @@ function scoreDocumentQuality(doc: string): { score: number; findings: string[];
   } else {
     score -= todoCount * 5;
     findings.push(`Incomplete placeholders found: ${todoCount} TODO/PLACEHOLDER markers`);
+  }
+
+  // [NOT SET] / [UNNAMED] / [UNKNOWN] — critical placeholder detection
+  // These indicate required inputs were never configured — heavy structural failure
+  const criticalPlaceholders = [
+    { re: /\[NOT SET\]/g, label: '[NOT SET] — required input (likely Greeting Text) was never configured' },
+    { re: /\[UNNAMED\]/g, label: '[UNNAMED] — AI name was not provided' },
+    { re: /\[UNKNOWN\]/g, label: '[UNKNOWN] — Origin number/designation was not provided' },
+    { re: /\[not specified\]/gi, label: '[not specified] — required configuration field left empty' },
+  ];
+  let criticalCount = 0;
+  const criticalMessages: string[] = [];
+  for (const { re, label } of criticalPlaceholders) {
+    const matches = doc.match(re) || [];
+    if (matches.length > 0) {
+      criticalCount += matches.length;
+      criticalMessages.push(`${label} — ${matches.length} occurrence(s)`);
+    }
+  }
+  if (criticalCount === 0) {
+    score += 15;
+    strengths.push('No critical unfilled placeholders — all required inputs configured');
+  } else {
+    // Heavy penalty: each [NOT SET] indicates a broken constitution that cannot function
+    score -= criticalCount * 15;
+    for (const msg of criticalMessages) {
+      findings.push(`CRITICAL PLACEHOLDER: ${msg}`);
+    }
   }
 
   return { score: Math.max(0, Math.min(100, score)), findings, strengths };
