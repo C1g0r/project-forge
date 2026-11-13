@@ -40,28 +40,14 @@ export function ModuleEditor({ meta }: Props) {
     return ctx;
   };
 
-  // Validate required fields before generating
-  const getMissingRequired = () =>
-    meta.inputFields
-      .filter(f => f.required && !inputs[f.id]?.trim())
-      .map(f => f.id);
+  // Auto-fill a field with its placeholder as a suggestion
+  const handleSuggest = (fieldId: string, placeholder: string | undefined) => {
+    if (placeholder) {
+      setModuleInput(meta.id, fieldId, placeholder);
+    }
+  };
 
   const handleGenerate = async () => {
-    // Client-side required field check
-    const missing = getMissingRequired();
-    if (missing.length > 0) {
-      const labels = meta.inputFields
-        .filter(f => missing.includes(f.id))
-        .map(f => `"${f.label}"`)
-        .join(', ');
-      setModuleStatus(
-        meta.id,
-        'error',
-        `Campos obrigatórios em falta: ${labels}. Preenche os campos marcados com * antes de gerar.`
-      );
-      return;
-    }
-
     setModuleStatus(meta.id, 'generating');
     setStreamBuffer('');
     setIsStreaming(true);
@@ -130,7 +116,6 @@ export function ModuleEditor({ meta }: Props) {
             <button
               onClick={handleGenerate}
               disabled={status === 'generating'}
-              title={getMissingRequired().length > 0 ? 'Preenche os campos obrigatórios (*) primeiro' : undefined}
               className="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 rounded text-xs font-semibold text-zinc-900 transition-colors"
             >
               {status === 'done' ? 'Regenerate' : 'Generate'}
@@ -151,25 +136,33 @@ export function ModuleEditor({ meta }: Props) {
       {/* Input fields */}
       <div className="space-y-4">
         <div className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Input</div>
-        {meta.inputFields.map(field => {
-            const isEmpty = field.required && !inputs[field.id]?.trim();
-            const errorBorder = isEmpty && status === 'error'
-              ? 'border-red-600 focus:border-red-500'
-              : 'border-zinc-700 focus:border-amber-500';
-            return (
+        {meta.inputFields.map(field => (
             <div key={field.id}>
-              <label className="block text-xs text-zinc-400 mb-1">
-                {field.label}
-                {field.required && (
-                  <span className={`ml-1 font-bold ${isEmpty && status === 'error' ? 'text-red-400' : 'text-amber-400'}`}>*</span>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs text-zinc-400">
+                  {field.label}
+                  {field.required && (
+                    <span className="ml-1 font-bold text-amber-400">*</span>
+                  )}
+                </label>
+                {field.required && field.placeholder && (
+                  <button
+                    type="button"
+                    onClick={() => handleSuggest(field.id, field.placeholder)}
+                    className="flex items-center gap-1 px-2 py-0.5 bg-zinc-800 hover:bg-amber-500/20 border border-zinc-700 hover:border-amber-500/50 rounded text-xs text-zinc-500 hover:text-amber-400 transition-all"
+                    title="Preencher com sugestão de exemplo"
+                  >
+                    <span>⚡</span>
+                    <span>Sugerir</span>
+                  </button>
                 )}
-              </label>
+              </div>
 
               {field.type === 'select' ? (
                 <select
                   value={inputs[field.id] ?? ''}
                   onChange={e => setModuleInput(meta.id, field.id, e.target.value)}
-                  className={`w-full bg-zinc-800 border ${errorBorder} rounded px-3 py-2 text-sm text-zinc-200 focus:outline-none`}
+                  className="w-full bg-zinc-800 border border-zinc-700 focus:border-amber-500 rounded px-3 py-2 text-sm text-zinc-200 focus:outline-none"
                 >
                   <option value="">{field.placeholder}</option>
                   {field.options?.map(opt => (
@@ -182,7 +175,7 @@ export function ModuleEditor({ meta }: Props) {
                   onChange={e => setModuleInput(meta.id, field.id, e.target.value)}
                   placeholder={field.placeholder}
                   rows={4}
-                  className={`w-full bg-zinc-800 border ${errorBorder} rounded px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none resize-y font-mono`}
+                  className="w-full bg-zinc-800 border border-zinc-700 focus:border-amber-500 rounded px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none resize-y font-mono"
                 />
               ) : (
                 <input
@@ -190,12 +183,11 @@ export function ModuleEditor({ meta }: Props) {
                   value={inputs[field.id] ?? ''}
                   onChange={e => setModuleInput(meta.id, field.id, e.target.value)}
                   placeholder={field.placeholder}
-                  className={`w-full bg-zinc-800 border ${errorBorder} rounded px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none`}
+                  className="w-full bg-zinc-800 border border-zinc-700 focus:border-amber-500 rounded px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none"
                 />
               )}
             </div>
-          );
-          })}
+          ))}
       </div>
 
       {/* Generated output */}
