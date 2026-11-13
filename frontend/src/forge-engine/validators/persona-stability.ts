@@ -1,7 +1,7 @@
 // MODULE 2 — Persona Stability Lock Validator
 
-import { ModuleResult, ValidationIssue } from '../types';
-import { ParsedDocument, findSections } from '../parser';
+import type { ModuleResult, ValidationIssue, ParsedDocument } from '../types';
+import { findSections } from '../parser';
 
 const KEYWORDS = [
   'persona', 'stability', 'identity', 'identidade', 'personalidade',

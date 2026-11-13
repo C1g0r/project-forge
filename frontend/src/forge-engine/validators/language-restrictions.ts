@@ -1,7 +1,8 @@
 // MODULE 6 — Language Restrictions Validator
 
-import { ModuleResult, ValidationIssue } from '../types';
-import { ParsedDocument, findSections } from '../parser';
+import type { ModuleResult, ValidationIssue } from '../types';
+import type { ParsedDocument } from '../types';
+import { findSections } from '../parser';
 
 const KEYWORDS = [
   'language', 'restriction', 'forbidden', 'proibid', 'linguagem',

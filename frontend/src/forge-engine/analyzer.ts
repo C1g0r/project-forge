@@ -1,7 +1,7 @@
 // PROJECT FORGE — Main Analysis Engine
 // Orchestrates all validators and produces the final AnalysisReport
 
-import { AnalysisReport, ModuleResult } from './types';
+import type { AnalysisReport, ModuleResult } from './types';
 import { parseDocument } from './parser';
 import { validateGreetingLock } from './validators/greeting-lock';
 import { validatePersonaStability } from './validators/persona-stability';

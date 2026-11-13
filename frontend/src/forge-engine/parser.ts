@@ -1,7 +1,7 @@
 // PROJECT FORGE — Document Parser
 // Breaks raw text into sections for module extraction
 
-import { ParsedDocument, DocumentSection } from './types';
+import type { ParsedDocument, DocumentSection } from './types';
 
 export function parseDocument(raw: string): ParsedDocument {
   const lines = raw.split('\n');

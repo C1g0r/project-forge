@@ -1,7 +1,7 @@
 // PROJECT FORGE — Cross-Module Validator
 // Validates consistency BETWEEN modules — this is where most documents fail
 
-import { ModuleResult, CrossValidationResult, ValidationIssue, ModuleId } from './types';
+import type { ModuleResult, CrossValidationResult, ValidationIssue, ModuleId } from './types';
 
 export function runCrossValidation(modules: ModuleResult[]): CrossValidationResult[] {
   const results: CrossValidationResult[] = [];

@@ -1,7 +1,8 @@
 // MODULE 3 — No-Flag Policy Validator
 
-import { ModuleResult, ValidationIssue } from '../types';
-import { ParsedDocument, findSections } from '../parser';
+import type { ModuleResult, ValidationIssue } from '../types';
+import type { ParsedDocument } from '../types';
+import { findSections } from '../parser';
 
 const KEYWORDS = [
   'no-flag', 'no flag', 'flag policy', 'hesitation', 'recusa', 'refusal',

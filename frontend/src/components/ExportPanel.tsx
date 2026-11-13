@@ -1,237 +1,188 @@
-import { useState, useMemo } from "react";
-import { Download, FileText, Copy, Check, ShieldCheck } from "lucide-react";
-import { useProjectStore } from "../store/projectStore";
-import { exportMarkdownUrl, exportValidationUrl } from "../lib/api";
+import React, { useState, useMemo } from 'react';
+import type { ModuleId } from '../forge-engine/types';
+import { useForgeStore, MODULE_META } from '../store/forgeStore';
+import type { ForgeStore } from '../store/forgeStore';
+import { analyzeDocument } from '../forge-engine/analyzer';
+
+function assembleDocument(projectName: string, modules: ForgeStore['modules']): string {
+  const lines: string[] = [];
+  lines.push(`# ${projectName}`);
+  lines.push('');
+
+  for (const meta of MODULE_META) {
+    const content = modules[meta.id as ModuleId].content.trim();
+    if (!content) continue;
+    lines.push(`## ${meta.label}`);
+    lines.push('');
+    lines.push(content);
+    lines.push('');
+  }
+
+  return lines.join('\n');
+}
 
 export function ExportPanel() {
-  const { blueprint, sessionId, validationReport, setStep } = useProjectStore();
+  const { projectName, modules, fullReport, setFullReport, setShowExport } = useForgeStore();
   const [copied, setCopied] = useState(false);
-  const [downloading, setDownloading] = useState(false);
-  const [downloadingValidation, setDownloadingValidation] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
 
-  if (!blueprint || !sessionId) return null;
+  const assembled = useMemo(
+    () => assembleDocument(projectName, modules),
+    [projectName, modules]
+  );
 
-  const wordCount = blueprint.chapters.reduce((acc, ch) => {
-    return acc + (ch.content ? ch.content.split(" ").filter(Boolean).length : 0);
-  }, 0);
+  const filledModules = MODULE_META.filter(m => modules[m.id as ModuleId].content.trim().length > 0);
+  const wordCount = assembled.split(/\s+/).filter(Boolean).length;
 
-  const doneChapters = blueprint.chapters.filter((c) => c.status === "done");
+  const handleAnalyze = () => {
+    setAnalyzing(true);
+    setTimeout(() => {
+      const report = analyzeDocument(assembled);
+      setFullReport(report);
+      setAnalyzing(false);
+    }, 100);
+  };
 
-  const markdownPreview = useMemo(() => {
-    return buildMarkdownPreview();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [blueprint, sessionId]);
-
-  function buildMarkdownPreview() {
-    const lines: string[] = [
-      `# ${blueprint.title}`,
-      "",
-      `> **Objectivo:** ${blueprint.objective}`,
-      `> **Audiência:** ${blueprint.audience}`,
-      `> **Gerado em:** ${new Date().toLocaleDateString("pt-PT")}`,
-      "",
-      "---",
-      "",
-      "## Índice",
-      "",
-    ];
-
-    doneChapters.forEach((ch) => {
-      lines.push(`- [${ch.title}](#${ch.title.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")})`);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(assembled).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
     });
-
-    lines.push("", "---", "");
-
-    doneChapters.forEach((ch) => {
-      lines.push(`## ${ch.title}`, "", ch.content || "", "", "---", "");
-    });
-
-    return lines.join("\n");
   };
 
-  const handleDownload = async () => {
-    setDownloading(true);
-    try {
-      const url = exportMarkdownUrl(sessionId);
-      const res = await fetch(url);
-      const text = await res.text();
-      const blob = new Blob([text], { type: "text/markdown" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `${blueprint.title.replace(/\s+/g, "_")}.md`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    } catch {
-      // fallback: download the preview
-      const md = buildMarkdownPreview();
-      const blob = new Blob([md], { type: "text/markdown" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `${blueprint.title.replace(/\s+/g, "_")}.md`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    } finally {
-      setDownloading(false);
-    }
+  const handleDownload = () => {
+    const blob = new Blob([assembled], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${projectName.replace(/\s+/g, '_').toLowerCase()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
-  const handleDownloadValidation = async () => {
-    if (!sessionId) return;
-    setDownloadingValidation(true);
-    try {
-      const url = exportValidationUrl(sessionId);
-      const res = await fetch(url);
-      const text = await res.text();
-      const blob = new Blob([text], { type: "text/markdown" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `${blueprint!.title.replace(/\s+/g, "_")}_validation.md`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    } finally {
-      setDownloadingValidation(false);
-    }
-  };
+  const overallScore = fullReport?.totalScore ?? null;
+  const grade = fullReport?.grade ?? null;
+  const gradeColor =
+    grade === 'S' ? 'text-violet-400' :
+    grade === 'A' ? 'text-emerald-400' :
+    grade === 'B' ? 'text-blue-400' :
+    grade === 'C' ? 'text-yellow-400' :
+    grade === 'D' ? 'text-orange-400' :
+    'text-red-400';
 
-  const handleCopy = async () => {
-    const md = buildMarkdownPreview();
-    await navigator.clipboard.writeText(md);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  // flat list of all cross-validation issues
+  const crossIssues = fullReport?.crossValidation.flatMap(cv => cv.issues) ?? [];
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* doc summary */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 sm:p-5 space-y-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h3 className="font-bold text-zinc-100 text-base sm:text-lg leading-tight">{blueprint.title}</h3>
-            <p className="text-zinc-500 text-xs sm:text-sm mt-0.5 line-clamp-2">{blueprint.objective}</p>
-          </div>
-          {validationReport && (
-            <div className={`text-sm font-bold px-2 py-1 rounded-lg shrink-0
-              ${validationReport.score >= 80 ? "text-emerald-400 bg-emerald-500/10"
-                : validationReport.score >= 60 ? "text-yellow-400 bg-yellow-500/10"
-                : "text-red-400 bg-red-500/10"}`}
-            >
-              {validationReport.score}/100
-            </div>
+    <div className="flex flex-col h-full gap-4 min-h-0">
+      {/* Header */}
+      <div className="flex items-center gap-3 shrink-0">
+        <button
+          onClick={() => setShowExport(false)}
+          className="text-zinc-500 hover:text-zinc-300 text-sm transition-colors"
+        >
+          ← Voltar
+        </button>
+        <h2 className="text-zinc-100 font-semibold text-sm">Export & Análise Completa</h2>
+        <div className="ml-auto flex items-center gap-2">
+          {overallScore !== null && grade && (
+            <span className={`text-sm font-bold font-mono ${gradeColor}`}>
+              {grade} {Math.round(overallScore)}
+            </span>
           )}
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-          <div className="bg-zinc-800 rounded-lg p-2">
-            <p className="text-lg font-bold text-zinc-100">{doneChapters.length}</p>
-            <p className="text-xs text-zinc-600">capítulos</p>
-          </div>
-          <div className="bg-zinc-800 rounded-lg p-2">
-            <p className="text-lg font-bold text-zinc-100">{wordCount.toLocaleString()}</p>
-            <p className="text-xs text-zinc-600">palavras</p>
-          </div>
-          <div className="bg-zinc-800 rounded-lg p-2">
-            <p className="text-lg font-bold text-zinc-100">{Math.round(wordCount / 250)}</p>
-            <p className="text-xs text-zinc-600">min leitura</p>
-          </div>
-          <div className="bg-zinc-800 rounded-lg p-2">
-            <p className="text-lg font-bold text-zinc-100">{Math.round(wordCount / 300)}</p>
-            <p className="text-xs text-zinc-600">páginas A4</p>
-          </div>
-        </div>
-      </div>
-
-      {/* export actions */}
-      <div className="space-y-3">
-        <p className="text-xs text-zinc-500 uppercase tracking-wider">Exportar como</p>
-
-        <button
-          onClick={handleDownload}
-          disabled={downloading}
-          className="w-full flex items-center gap-3 p-3 sm:p-4 bg-zinc-900 border border-zinc-700
-                     hover:border-violet-500 active:border-violet-600 rounded-xl transition-colors group"
-        >
-          <div className="w-10 h-10 bg-zinc-800 group-hover:bg-violet-500/20 rounded-xl
-                          flex items-center justify-center transition-colors shrink-0">
-            <FileText size={20} className="text-zinc-400 group-hover:text-violet-400" />
-          </div>
-          <div className="flex-1 text-left min-w-0">
-            <p className="text-sm font-medium text-zinc-200">Markdown (.md)</p>
-            <p className="text-xs text-zinc-600">Com TOC, cabeçalhos e metadata</p>
-          </div>
-          <Download size={16} className={`text-zinc-600 group-hover:text-violet-400 transition-colors shrink-0 ${downloading ? "animate-bounce" : ""}`} />
-        </button>
-
-        {validationReport && (
           <button
-            onClick={handleDownloadValidation}
-            disabled={downloadingValidation}
-            className="w-full flex items-center gap-3 p-3 sm:p-4 bg-zinc-900 border border-zinc-700
-                       hover:border-emerald-500 active:border-emerald-600 rounded-xl transition-colors group"
+            onClick={handleAnalyze}
+            disabled={analyzing || filledModules.length === 0}
+            className="px-3 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 disabled:opacity-40
+                       text-zinc-200 text-xs font-medium transition-colors"
           >
-            <div className="w-10 h-10 bg-zinc-800 group-hover:bg-emerald-500/20 rounded-xl
-                            flex items-center justify-center transition-colors shrink-0">
-              <ShieldCheck size={20} className="text-zinc-400 group-hover:text-emerald-400" />
-            </div>
-            <div className="flex-1 text-left min-w-0">
-              <p className="text-sm font-medium text-zinc-200">Relatório de Validação (.md)</p>
-              <p className="text-xs text-zinc-600">Score, contradições, lacunas e sugestões</p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <span className={`text-xs font-bold px-2 py-0.5 rounded
-                ${validationReport.score >= 80 ? "text-emerald-400 bg-emerald-500/10"
-                  : validationReport.score >= 60 ? "text-yellow-400 bg-yellow-500/10"
-                  : "text-red-400 bg-red-500/10"}`}>
-                {validationReport.score}/100
-              </span>
-              <Download size={16} className={`text-zinc-600 group-hover:text-emerald-400 transition-colors ${downloadingValidation ? "animate-bounce" : ""}`} />
-            </div>
+            {analyzing ? 'A analisar…' : 'Analisar tudo'}
           </button>
-        )}
-
-        <button
-          onClick={handleCopy}
-          className="w-full flex items-center gap-3 p-3 sm:p-4 bg-zinc-900 border border-zinc-800
-                     hover:border-zinc-600 active:border-zinc-500 rounded-xl transition-colors group"
-        >
-          <div className="w-10 h-10 bg-zinc-800 rounded-xl flex items-center justify-center shrink-0">
-            {copied ? <Check size={20} className="text-emerald-400" /> : <Copy size={20} className="text-zinc-400 group-hover:text-zinc-200" />}
-          </div>
-          <div className="flex-1 text-left min-w-0">
-            <p className="text-sm font-medium text-zinc-200">Copiar para clipboard</p>
-            <p className="text-xs text-zinc-600">Copia o texto completo em Markdown</p>
-          </div>
-          <span className="text-xs text-zinc-600 group-hover:text-zinc-400 transition-colors shrink-0">
-            {copied ? "Copiado!" : "Copiar"}
-          </span>
-        </button>
-      </div>
-
-      {/* preview */}
-      <div>
-        <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Pré-visualização</p>
-        <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-3 sm:p-4 max-h-48 sm:max-h-64 overflow-y-auto
-                        font-mono text-xs text-zinc-400 leading-relaxed whitespace-pre-wrap">
-          {markdownPreview.substring(0, 1200)}
-          {markdownPreview.length > 1200 && "\n\n..."}
+          <button
+            onClick={handleCopy}
+            className="px-3 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600
+                       text-zinc-200 text-xs font-medium transition-colors"
+          >
+            {copied ? '✓ Copiado' : 'Copiar'}
+          </button>
+          <button
+            onClick={handleDownload}
+            className="px-3 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600
+                       text-zinc-200 text-xs font-medium transition-colors"
+          >
+            Download .txt
+          </button>
         </div>
       </div>
 
-      {/* navigation */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <button
-          onClick={() => setStep("validate")}
-          className="sm:w-auto w-full text-zinc-500 hover:text-zinc-300 active:text-zinc-200 border border-zinc-800 hover:border-zinc-600
-                     rounded-xl px-4 py-3 sm:py-2 text-sm transition-colors"
-        >
-          ← Validação
-        </button>
-        <button
-          onClick={() => setStep("writing")}
-          className="sm:w-auto w-full text-zinc-500 hover:text-zinc-300 active:text-zinc-200 border border-zinc-800 hover:border-zinc-600
-                     rounded-xl px-4 py-3 sm:py-2 text-sm transition-colors"
-        >
-          Editar capítulos
-        </button>
+      {/* Stats row */}
+      <div className="flex gap-4 shrink-0 text-xs text-zinc-500">
+        <span>{filledModules.length} / {MODULE_META.length} módulos preenchidos</span>
+        <span>·</span>
+        <span>{wordCount.toLocaleString()} palavras</span>
+        {fullReport && (
+          <>
+            <span>·</span>
+            <span className="text-red-400">
+              {fullReport.summary.criticalIssues} críticos
+            </span>
+            <span className="text-yellow-400">
+              {fullReport.summary.warnings} avisos
+            </span>
+          </>
+        )}
+      </div>
+
+      {/* Full report (if available) */}
+      {fullReport && (
+        <div className="shrink-0 grid grid-cols-7 gap-2">
+          {MODULE_META.map((meta) => {
+            const mr = fullReport.modules.find(r => r.id === meta.id);
+            if (!mr || !mr.present) return (
+              <div key={meta.id} className="bg-zinc-900 rounded-lg p-2 text-center border border-zinc-800 opacity-40">
+                <div className="text-lg">{meta.icon}</div>
+                <div className="text-zinc-600 text-[10px] mt-1">—</div>
+              </div>
+            );
+            const g = mr.score >= 93 ? 'S' : mr.score >= 83 ? 'A' : mr.score >= 70 ? 'B' : mr.score >= 55 ? 'C' : mr.score >= 40 ? 'D' : 'F';
+            const gc =
+              g === 'S' ? 'text-violet-400' : g === 'A' ? 'text-emerald-400' : g === 'B' ? 'text-blue-400' :
+              g === 'C' ? 'text-yellow-400' : g === 'D' ? 'text-orange-400' : 'text-red-400';
+            return (
+              <div key={meta.id} className="bg-zinc-900 rounded-lg p-2 text-center border border-zinc-800">
+                <div className="text-lg">{meta.icon}</div>
+                <div className={`font-bold font-mono text-sm mt-1 ${gc}`}>{g}</div>
+                <div className="text-zinc-600 text-[10px]">{Math.round(mr.score)}</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Cross-validation issues */}
+      {crossIssues.length > 0 && (
+        <div className="shrink-0 bg-zinc-900 rounded-lg p-3 border border-zinc-800">
+          <div className="text-zinc-400 text-xs font-semibold uppercase tracking-wide mb-2">
+            Cross-Validation
+          </div>
+          <ul className="space-y-1">
+            {crossIssues.map((issue, i) => (
+              <li key={i} className="text-xs flex gap-2">
+                <span className="shrink-0">
+                  {issue.severity === 'critical' ? '🔴' : issue.severity === 'warning' ? '🟡' : '🔵'}
+                </span>
+                <span className="text-zinc-300">{issue.message}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Raw document preview */}
+      <div className="flex-1 min-h-0 overflow-hidden rounded-lg border border-zinc-800">
+        <pre className="h-full overflow-auto p-4 text-xs font-mono text-zinc-300 bg-zinc-950 leading-relaxed whitespace-pre-wrap break-words">
+          {assembled || <span className="text-zinc-700">Nenhum módulo preenchido ainda.</span>}
+        </pre>
       </div>
     </div>
   );

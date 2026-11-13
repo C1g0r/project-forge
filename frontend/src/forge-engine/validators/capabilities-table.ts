@@ -1,8 +1,9 @@
 // MODULE 5 — Capabilities Table Validator
 // Highest weight — defines operational boundaries
 
-import { ModuleResult, ValidationIssue, CapabilityEntry, CapabilityLevel } from '../types';
-import { ParsedDocument, findSections } from '../parser';
+import type { ModuleResult, ValidationIssue, CapabilityEntry, CapabilityLevel } from '../types';
+import type { ParsedDocument } from '../types';
+import { findSections } from '../parser';
 
 const KEYWORDS = [
   'capabilities', 'capability', 'capacidade', 'capabilities table',

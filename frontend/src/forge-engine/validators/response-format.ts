@@ -1,7 +1,7 @@
 // MODULE 7 — Response Format Validator
 
-import { ModuleResult, ValidationIssue } from '../types';
-import { ParsedDocument, findSections } from '../parser';
+import type { ModuleResult, ValidationIssue, ParsedDocument } from '../types';
+import { findSections } from '../parser';
 
 const KEYWORDS = [
   'response format', 'formato', 'format', 'structure', 'estrutura',
