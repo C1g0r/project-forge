@@ -23,6 +23,7 @@ import { improveDocument } from "./pipeline/improver.ts";
 import type { DocumentBlueprint, Chapter } from "./pipeline/architect.ts";
 import { reviewModules } from "./pipeline/module-reviewer.ts";
 import type { ModuleInput } from "./pipeline/module-reviewer.ts";
+import { buildPDF, buildDOCX } from "./export/modules-export.ts";
 
 const app = express();
 const allowedOrigins = process.env.ALLOWED_ORIGINS
@@ -331,6 +332,51 @@ app.post("/api/modules/review", async (req, res) => {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("modules/review error:", msg);
     res.status(500).json({ error: "Erro na revisão de módulos.", detail: msg });
+  }
+});
+
+// ── MODULES EXPORT (PDF / DOCX) ───────────────────────────────────────────────
+app.post("/api/modules/export", async (req, res) => {
+  try {
+    const { projectName, modules, format } = req.body as {
+      projectName: string;
+      modules: ModuleInput[];
+      format: "pdf" | "docx";
+    };
+
+    if (!modules || !Array.isArray(modules)) {
+      res.status(400).json({ error: "Falta lista de módulos." });
+      return;
+    }
+
+    if (format !== "pdf" && format !== "docx") {
+      res.status(400).json({ error: "Formato inválido. Use 'pdf' ou 'docx'." });
+      return;
+    }
+
+    const name = (projectName || "Documento").replace(/[^a-zA-Z0-9_\- ]/g, "").trim() || "Documento";
+    const filename = `${name}.${format}`;
+
+    if (format === "pdf") {
+      const buffer = await buildPDF(projectName ?? "Documento", modules);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.setHeader("Content-Length", buffer.length);
+      res.send(buffer);
+    } else {
+      const buffer = await buildDOCX(projectName ?? "Documento", modules);
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      );
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.setHeader("Content-Length", buffer.length);
+      res.send(buffer);
+    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("modules/export error:", msg);
+    res.status(500).json({ error: "Erro ao gerar ficheiro.", detail: msg });
   }
 });
 

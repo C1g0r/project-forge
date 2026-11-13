@@ -207,6 +207,47 @@ export interface AIReviewReport {
   strengths: string[];
 }
 
+// ── MODULES EXPORT (PDF / DOCX) ──────────────────────────────────────────────
+
+export type ExportFormat = "pdf" | "docx";
+
+export interface ExportModulePayload {
+  id: string;
+  label: string;
+  content: string;
+}
+
+export async function exportModules(
+  projectName: string,
+  modules: ExportModulePayload[],
+  format: ExportFormat
+): Promise<void> {
+  const res = await fetch(`${BASE}/modules/export`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ projectName, modules, format }),
+    signal: AbortSignal.timeout(60000),
+  });
+  if (!res.ok) {
+    let detail = "";
+    try {
+      const j = await res.json();
+      detail = j.detail || j.error || "";
+    } catch { /* ignore */ }
+    throw new Error(detail || `Erro ${res.status} ao exportar ${format.toUpperCase()}.`);
+  }
+
+  // Trigger browser download
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const safeName = projectName.replace(/[^a-zA-Z0-9_\- ]/g, "").trim() || "documento";
+  a.download = `${safeName}.${format}`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export async function reviewModules(
   projectName: string,
   modules: ModulePayload[]

@@ -3,8 +3,8 @@ import type { ModuleId } from '../forge-engine/types';
 import { useForgeStore, MODULE_META } from '../store/forgeStore';
 import type { ForgeStore } from '../store/forgeStore';
 import { analyzeDocument } from '../forge-engine/analyzer';
-import { reviewModules } from '../lib/api';
-import type { AIReviewReport } from '../lib/api';
+import { reviewModules, exportModules } from '../lib/api';
+import type { AIReviewReport, ExportFormat } from '../lib/api';
 
 function assembleDocument(projectName: string, modules: ForgeStore['modules']): string {
   const lines: string[] = [];
@@ -30,6 +30,8 @@ export function ExportPanel() {
   const [aiReport, setAiReport] = useState<AIReviewReport | null>(null);
   const [aiReviewing, setAiReviewing] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState<ExportFormat | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const assembled = useMemo(
     () => assembleDocument(projectName, modules),
@@ -64,6 +66,23 @@ export function ExportPanel() {
       setAiError(err instanceof Error ? err.message : 'Erro na revisão IA.');
     } finally {
       setAiReviewing(false);
+    }
+  };
+
+  const handleExport = async (format: ExportFormat) => {
+    setExporting(format);
+    setExportError(null);
+    try {
+      const modulePayloads = MODULE_META.map(m => ({
+        id: m.id,
+        label: m.label,
+        content: modules[m.id as ModuleId].content,
+      }));
+      await exportModules(projectName, modulePayloads, format);
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : `Erro ao exportar ${format.toUpperCase()}.`);
+    } finally {
+      setExporting(null);
     }
   };
 
@@ -155,6 +174,26 @@ export function ExportPanel() {
             }
           </button>
           <button
+            onClick={() => handleExport('pdf')}
+            disabled={exporting !== null || filledModules.length === 0}
+            className="px-3 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 disabled:opacity-40
+                       text-zinc-200 text-xs font-medium transition-colors flex items-center gap-1"
+          >
+            {exporting === 'pdf'
+              ? <><span className="animate-spin inline-block w-3 h-3 border border-t-zinc-300 border-zinc-600 rounded-full" />PDF…</>
+              : '↓ PDF'}
+          </button>
+          <button
+            onClick={() => handleExport('docx')}
+            disabled={exporting !== null || filledModules.length === 0}
+            className="px-3 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 disabled:opacity-40
+                       text-zinc-200 text-xs font-medium transition-colors flex items-center gap-1"
+          >
+            {exporting === 'docx'
+              ? <><span className="animate-spin inline-block w-3 h-3 border border-t-zinc-300 border-zinc-600 rounded-full" />DOCX…</>
+              : '↓ DOCX'}
+          </button>
+          <button
             onClick={handleCopy}
             className="px-3 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600
                        text-zinc-200 text-xs font-medium transition-colors"
@@ -166,7 +205,7 @@ export function ExportPanel() {
             className="px-3 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600
                        text-zinc-200 text-xs font-medium transition-colors"
           >
-            Download .txt
+            ↓ .txt
           </button>
         </div>
       </div>
@@ -234,6 +273,14 @@ export function ExportPanel() {
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+
+        {/* Export Error */}
+        {exportError && (
+          <div className="bg-red-950/40 rounded-lg p-3 border border-red-900/60 text-xs text-red-300 flex items-center justify-between gap-2">
+            <span>✕ {exportError}</span>
+            <button onClick={() => setExportError(null)} className="text-red-500 hover:text-red-300 shrink-0">✕</button>
           </div>
         )}
 
