@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { useForgeStore, MODULE_META } from './store/forgeStore';
 import type { ForgeStore } from './store/forgeStore';
 import type { ModuleId } from './forge-engine/types';
@@ -7,6 +7,7 @@ import { ModuleEditor } from './components/ModuleEditor';
 import { ExportPanel } from './components/ExportPanel';
 import { ProjectLibrary } from './components/ProjectLibrary';
 import { supabaseReady } from './lib/supabase';
+import { ConstitutionApp } from './constitution/ConstitutionApp';
 
 function weightedOverallScore(modules: ForgeStore['modules']): number | null {
   let totalWeight = 0;
@@ -58,6 +59,27 @@ export default function App() {
   } = useForgeStore();
   const nameRef = useRef<HTMLInputElement>(null);
   const overall = weightedOverallScore(modules);
+  const [oceMode, setOceMode] = useState(false);
+
+  if (oceMode) {
+    return (
+      <div className="relative">
+        {/* Back to Forge button — floating top-right */}
+        <div className="fixed top-0 right-0 z-50 flex items-center gap-0">
+          <button
+            onClick={() => setOceMode(false)}
+            className="m-2 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700
+                       text-xs font-medium text-zinc-400 hover:text-zinc-200 rounded-lg
+                       transition-colors shadow-lg"
+            title="Voltar ao Project Forge"
+          >
+            ← Forge
+          </button>
+        </div>
+        <ConstitutionApp />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
@@ -146,6 +168,19 @@ export default function App() {
           >
             {showExport ? '← Editor' : 'Export →'}
           </button>
+
+          {/* OCE mode toggle */}
+          <button
+            onClick={() => setOceMode(true)}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors
+                       bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30
+                       text-amber-400 hover:text-amber-300"
+            title="Operational Constitution Engine"
+          >
+            📜 OCE
+          </button>
+
+          <div className="w-px h-4 bg-zinc-800 shrink-0" />
 
           {/* Reset */}
           <button

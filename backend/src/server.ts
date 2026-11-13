@@ -24,6 +24,15 @@ import type { DocumentBlueprint, Chapter } from "./pipeline/architect.ts";
 import { reviewModules } from "./pipeline/module-reviewer.ts";
 import type { ModuleInput } from "./pipeline/module-reviewer.ts";
 import { buildPDF, buildDOCX } from "./export/modules-export.ts";
+import { generateModule } from "./constitution/generator.ts";
+import type { ModuleGenerationRequest } from "./constitution/generator.ts";
+import { compileConstitution } from "./constitution/compiler.ts";
+import type { CompileRequest } from "./constitution/compiler.ts";
+import { auditConstitution } from "./constitution/auditor.ts";
+import { generateAdversarialTests } from "./constitution/adversarial.ts";
+import type { AdversarialRequest } from "./constitution/adversarial.ts";
+import { exportConstitution, getContentType } from "./constitution/exporter.ts";
+import type { ExportRequest, ExportFormat } from "./constitution/exporter.ts";
 
 const app = express();
 const allowedOrigins = process.env.ALLOWED_ORIGINS
@@ -377,6 +386,142 @@ app.post("/api/modules/export", async (req, res) => {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("modules/export error:", msg);
     res.status(500).json({ error: "Erro ao gerar ficheiro.", detail: msg });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════════════
+// OPERATIONAL CONSTITUTION ENGINE — Routes
+// ════════════════════════════════════════════════════════════════════════
+
+// POST /api/constitution/generate
+// Generate a single module's constitution section (supports SSE streaming)
+app.post("/api/constitution/generate", async (req, res) => {
+  const { moduleId, inputs, context, complexity, model, stream } = req.body as ModuleGenerationRequest & { stream?: boolean };
+
+  if (!moduleId || !inputs) {
+    return res.status(400).json({ error: "moduleId and inputs are required" });
+  }
+
+  if (stream) {
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+
+    let fullContent = "";
+    try {
+      await generateModule({
+        moduleId,
+        inputs,
+        context: context || {},
+        complexity: complexity || "standard",
+        model,
+        onToken: (token: string) => {
+          fullContent += token;
+          res.write(`data: ${JSON.stringify({ token })}\n\n`);
+        },
+      });
+      res.write(`data: ${JSON.stringify({ done: true, content: fullContent })}\n\n`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.write(`data: ${JSON.stringify({ error: msg })}\n\n`);
+    } finally {
+      res.end();
+    }
+  } else {
+    try {
+      const content = await generateModule({
+        moduleId,
+        inputs,
+        context: context || {},
+        complexity: complexity || "standard",
+        model,
+      });
+      res.json({ content, lineCount: content.split("\n").length });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("constitution/generate error:", msg);
+      res.status(500).json({ error: msg });
+    }
+  }
+});
+
+// POST /api/constitution/compile
+// Compile all module outputs into one document
+app.post("/api/constitution/compile", (req, res) => {
+  const compileReq = req.body as CompileRequest;
+  if (!compileReq.outputs || !Array.isArray(compileReq.outputs)) {
+    return res.status(400).json({ error: "outputs array is required" });
+  }
+
+  try {
+    const result = compileConstitution(compileReq);
+    res.json(result);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("constitution/compile error:", msg);
+    res.status(500).json({ error: msg });
+  }
+});
+
+// POST /api/constitution/audit
+// Benchmark-score a compiled constitution against 1667Crow
+app.post("/api/constitution/audit", (req, res) => {
+  const { document } = req.body as { document: string };
+  if (!document) {
+    return res.status(400).json({ error: "document is required" });
+  }
+
+  try {
+    const report = auditConstitution(document);
+    res.json(report);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("constitution/audit error:", msg);
+    res.status(500).json({ error: msg });
+  }
+});
+
+// POST /api/constitution/adversarial
+// Generate adversarial test suite for a constitution
+app.post("/api/constitution/adversarial", (req, res) => {
+  const adversarialReq = req.body as AdversarialRequest;
+  if (!adversarialReq.aiName || !adversarialReq.greetingText) {
+    return res.status(400).json({ error: "aiName and greetingText are required" });
+  }
+
+  try {
+    const report = generateAdversarialTests(adversarialReq);
+    res.json(report);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("constitution/adversarial error:", msg);
+    res.status(500).json({ error: msg });
+  }
+});
+
+// POST /api/constitution/export
+// Export constitution to MD, TXT, JSON, or PDF
+app.post("/api/constitution/export", async (req, res) => {
+  const exportReq = req.body as ExportRequest;
+  if (!exportReq.document || !exportReq.projectName || !exportReq.format) {
+    return res.status(400).json({ error: "document, projectName, and format are required" });
+  }
+
+  const validFormats: ExportFormat[] = ["markdown", "txt", "json", "pdf"];
+  if (!validFormats.includes(exportReq.format)) {
+    return res.status(400).json({ error: `Invalid format. Use: ${validFormats.join(", ")}` });
+  }
+
+  try {
+    const result = await exportConstitution(exportReq);
+    res.setHeader("Content-Type", getContentType(exportReq.format));
+    res.setHeader("Content-Disposition", `attachment; filename="${result.filename}"`);
+    res.send(result.content);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("constitution/export error:", msg);
+    res.status(500).json({ error: msg });
   }
 });
 
