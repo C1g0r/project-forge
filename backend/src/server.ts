@@ -44,12 +44,21 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
       "https://project-forge-two.vercel.app",
       "https://project-forge-backend-2knl.onrender.com",
     ];
+
+// Match exact list OR any *.netlify.app / *.vercel.app subdomain
+function isAllowedOrigin(origin: string): boolean {
+  if (allowedOrigins.includes(origin)) return true;
+  if (/^https:\/\/[a-z0-9-]+\.netlify\.app$/.test(origin)) return true;
+  if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/.test(origin)) return true;
+  return false;
+}
+
 app.use(
   cors({
     origin: (origin, callback) => {
       // permitir requests sem origin (curl, Postman, server-to-server)
       if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
+      if (isAllowedOrigin(origin)) return callback(null, true);
       callback(new Error(`CORS bloqueado: ${origin}`));
     },
     credentials: true,
