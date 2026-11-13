@@ -5,6 +5,8 @@ import type { ModuleId } from './forge-engine/types';
 import { ModuleSidebar } from './components/ModuleSidebar';
 import { ModuleEditor } from './components/ModuleEditor';
 import { ExportPanel } from './components/ExportPanel';
+import { ProjectLibrary } from './components/ProjectLibrary';
+import { supabaseReady } from './lib/supabase';
 
 function weightedOverallScore(modules: ForgeStore['modules']): number | null {
   let totalWeight = 0;
@@ -49,7 +51,11 @@ function OverallScoreBadge({ score }: { score: number | null }) {
 }
 
 export default function App() {
-  const { projectName, modules, showExport, setProjectName, setShowExport, resetAll } = useForgeStore();
+  const {
+    projectName, modules, showExport,
+    setProjectName, setShowExport, resetAll,
+    setShowLibrary, saveToCloud, cloudSaving, cloudSavedAt, cloudId,
+  } = useForgeStore();
   const nameRef = useRef<HTMLInputElement>(null);
   const overall = weightedOverallScore(modules);
 
@@ -89,6 +95,45 @@ export default function App() {
 
           <div className="w-px h-4 bg-zinc-800 shrink-0" />
 
+          {/* Cloud save indicator */}
+          {supabaseReady && cloudSavedAt > 0 && (
+            <span className="text-[10px] text-emerald-600 font-mono flex items-center gap-1" title="Guardado na nuvem">
+              ✓ nuvem
+            </span>
+          )}
+
+          {/* Quick save */}
+          {supabaseReady && (
+            <button
+              onClick={() => saveToCloud()}
+              disabled={cloudSaving}
+              className={[
+                'px-2.5 py-1 rounded-lg text-xs font-medium transition-colors',
+                cloudSaving
+                  ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
+                  : cloudId
+                    ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-400'
+                    : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-400',
+              ].join(' ')}
+              title={cloudId ? 'Actualizar na nuvem' : 'Guardar na nuvem'}
+            >
+              {cloudSaving
+                ? <span className="inline-block w-3 h-3 border-2 border-zinc-700 border-t-zinc-400 rounded-full animate-spin" />
+                : '↑'}
+            </button>
+          )}
+
+          {/* Library */}
+          <button
+            onClick={() => setShowLibrary(true)}
+            className="px-2.5 py-1 rounded-lg text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-400 transition-colors"
+            title="Biblioteca de projectos"
+          >
+            📂
+          </button>
+
+          <div className="w-px h-4 bg-zinc-800 shrink-0" />
+
           {/* Export toggle */}
           <button
             onClick={() => setShowExport(!showExport)}
@@ -114,6 +159,9 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      {/* Library modal */}
+      <ProjectLibrary />
 
       {/* Main layout */}
       <div className="flex flex-1 min-h-0">

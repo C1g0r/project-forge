@@ -2,6 +2,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { ModuleId, ModuleResult, AnalysisReport } from '../forge-engine/types';
+import { saveProject, loadProject } from '../lib/projectsRepo';
+import { supabaseReady } from '../lib/supabase';
 
 export interface ModuleState {
   content: string;
@@ -130,13 +132,25 @@ export interface ForgeStore {
   fullReport: AnalysisReport | null;
   showExport: boolean;
 
+  // Cloud persistence
+  cloudId: string | null;         // Supabase project id if saved to cloud
+  cloudSaving: boolean;
+  cloudSaveError: string | null;
+  cloudSavedAt: number;           // timestamp of last successful cloud save (0 = never)
+  showLibrary: boolean;
+
   setProjectName: (name: string) => void;
   setActiveModule: (id: ModuleId) => void;
   setModuleContent: (id: ModuleId, content: string) => void;
   setModuleResult: (id: ModuleId, result: ModuleResult) => void;
   setFullReport: (report: AnalysisReport | null) => void;
   setShowExport: (v: boolean) => void;
+  setShowLibrary: (v: boolean) => void;
   resetAll: () => void;
+
+  // Cloud actions
+  saveToCloud: () => Promise<void>;
+  loadFromCloud: (id: string) => Promise<void>;
 }
 
 const DEFAULT_MODULES = (): Record<ModuleId, ModuleState> =>
@@ -146,12 +160,19 @@ const DEFAULT_MODULES = (): Record<ModuleId, ModuleState> =>
 
 export const useForgeStore = create<ForgeStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       projectName: 'Novo Documento',
       modules: DEFAULT_MODULES(),
       activeModule: 'greeting_lock',
       fullReport: null,
       showExport: false,
+
+      // Cloud state
+      cloudId: null,
+      cloudSaving: false,
+      cloudSaveError: null,
+      cloudSavedAt: 0,
+      showLibrary: false,
 
       setProjectName: (name) => set({ projectName: name }),
       setActiveModule: (id) => set({ activeModule: id }),
@@ -161,7 +182,7 @@ export const useForgeStore = create<ForgeStore>()(
             ...s.modules,
             [id]: { ...s.modules[id], content },
           },
-          fullReport: null, // invalidate full report on edit
+          fullReport: null,
         })),
       setModuleResult: (id, result) =>
         set((s) => ({
@@ -172,6 +193,7 @@ export const useForgeStore = create<ForgeStore>()(
         })),
       setFullReport: (fullReport) => set({ fullReport }),
       setShowExport: (showExport) => set({ showExport }),
+      setShowLibrary: (showLibrary) => set({ showLibrary }),
       resetAll: () =>
         set({
           projectName: 'Novo Documento',
@@ -179,7 +201,67 @@ export const useForgeStore = create<ForgeStore>()(
           activeModule: 'greeting_lock',
           fullReport: null,
           showExport: false,
+          cloudId: null,
+          cloudSaveError: null,
+          cloudSavedAt: 0,
         }),
+
+      // ── Cloud actions ─────────────────────────────────────────────────────
+
+      saveToCloud: async () => {
+        if (!supabaseReady) {
+          set({ cloudSaveError: 'Supabase não configurado.' });
+          return;
+        }
+        const { projectName, modules, cloudId } = get();
+        set({ cloudSaving: true, cloudSaveError: null });
+        try {
+          const moduleContents = Object.fromEntries(
+            Object.entries(modules).map(([k, v]) => [k, { content: v.content }])
+          ) as Record<ModuleId, { content: string }>;
+
+          const record = await saveProject(projectName, moduleContents, cloudId ?? undefined);
+          set({ cloudId: record.id, cloudSaving: false, cloudSavedAt: Date.now() });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          set({ cloudSaving: false, cloudSaveError: msg });
+        }
+      },
+
+      loadFromCloud: async (id: string) => {
+        if (!supabaseReady) {
+          set({ cloudSaveError: 'Supabase não configurado.' });
+          return;
+        }
+        set({ cloudSaving: true, cloudSaveError: null });
+        try {
+          const record = await loadProject(id);
+          const restored = DEFAULT_MODULES();
+          for (const [k, v] of Object.entries(record.modules)) {
+            if (k in restored) {
+              (restored as Record<string, ModuleState>)[k] = {
+                content: (v as { content: string }).content ?? '',
+                result: null,
+                validatedAt: 0,
+              };
+            }
+          }
+          set({
+            projectName: record.project_name,
+            modules: restored,
+            activeModule: 'greeting_lock',
+            fullReport: null,
+            showExport: false,
+            cloudId: record.id,
+            cloudSaving: false,
+            cloudSavedAt: Date.now(),
+            showLibrary: false,
+          });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          set({ cloudSaving: false, cloudSaveError: msg });
+        }
+      },
     }),
     {
       name: 'project-forge-v2',
@@ -188,6 +270,7 @@ export const useForgeStore = create<ForgeStore>()(
         modules: Object.fromEntries(
           Object.entries(s.modules).map(([k, v]) => [k, { content: v.content }])
         ),
+        cloudId: s.cloudId,
       }),
     }
   )
