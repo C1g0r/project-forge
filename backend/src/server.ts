@@ -91,6 +91,11 @@ function sessionId(): string {
   return Math.random().toString(36).substring(2, 10);
 }
 
+// ── HEALTH CHECK (used by frontend wake-up ping) ─────────────────────────────
+app.get("/health", (_req, res) => {
+  res.json({ ok: true, ts: Date.now() });
+});
+
 // ── DIAGNOSTIC: lista modelos disponíveis no Groq ───────────────────────────
 app.get("/api/models", async (_req, res) => {
   try {

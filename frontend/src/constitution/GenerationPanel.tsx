@@ -8,7 +8,20 @@ import {
   generateAdversarialTests as apiAdversarial,
   exportConstitution as apiExport,
   downloadBlob,
+  wakeBackend,
 } from '../lib/constitutionApi';
+
+/** Returns true if the error looks like a Render cold-start network failure. */
+function isNetworkError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const msg = err.message.toLowerCase();
+  return (
+    msg.includes('failed to fetch') ||
+    msg.includes('networkerror') ||
+    msg.includes('network request failed') ||
+    msg.includes('load failed')
+  );
+}
 
 const COMPLEXITY_LABELS: Record<ComplexityLevel, string> = {
   minimal: 'Minimal (~500 lines)',
@@ -40,6 +53,8 @@ export function GenerationPanel() {
   const [exportFormat, setExportFormat] = useState<'markdown' | 'txt' | 'json' | 'pdf'>('markdown');
   const [isExporting, setIsExporting] = useState(false);
   const [pipelineError, setPipelineError] = useState<string | null>(null);
+  // Wake-up state: null = idle, string = status message shown while server wakes
+  const [wakeStatus, setWakeStatus] = useState<string | null>(null);
 
   const completed = getCompletedModuleCount();
   const total = getTotalModuleCount();
@@ -58,6 +73,7 @@ export function GenerationPanel() {
 
   const generateAllModules = async () => {
     setPipelineError(null);
+    setWakeStatus(null);
     const context = buildContext();
 
     for (const meta of CONSTITUTION_MODULE_META) {
@@ -75,9 +91,39 @@ export function GenerationPanel() {
           complexity,
         });
         setModuleGenerated(meta.id, result.content);
-        // Update context with new output
         context[meta.id] = result.content.slice(0, 500);
       } catch (err: any) {
+        if (isNetworkError(err)) {
+          // Backend sleeping — wake then retry this module
+          setWakeStatus('Servidor a arrancar… aguarda.');
+          const awake = await wakeBackend((attempt, elapsed) => {
+            setWakeStatus(`Servidor a arrancar… tentativa ${attempt} (${elapsed}s)`);
+          });
+          setWakeStatus(null);
+          if (awake) {
+            try {
+              const retry = await apiGenerateModule({
+                moduleId: meta.id,
+                inputs: moduleState?.inputs ?? {},
+                context,
+                complexity,
+              });
+              setModuleGenerated(meta.id, retry.content);
+              context[meta.id] = retry.content.slice(0, 500);
+              continue; // success — keep going
+            } catch (retryErr: any) {
+              setModuleStatus(meta.id, 'error');
+              setPipelineError(`Failed on module ${meta.label}: ${retryErr.message}`);
+              return;
+            }
+          } else {
+            setModuleStatus(meta.id, 'error');
+            setPipelineError(
+              'Servidor não respondeu (timeout). Tenta de novo em 1-2 minutos.'
+            );
+            return;
+          }
+        }
         setModuleStatus(meta.id, 'error');
         setPipelineError(`Failed on module ${meta.label}: ${err.message}`);
         return;
@@ -87,6 +133,7 @@ export function GenerationPanel() {
 
   const compileFull = async () => {
     setPipelineError(null);
+    setWakeStatus(null);
 
     // Validate required fields before compile
     const greetingText = modules['instruction_architect']?.inputs?.greetingText;
@@ -99,8 +146,9 @@ export function GenerationPanel() {
     }
 
     setIsCompiling(true);
-    try {
-      // Build the outputs array matching backend ModuleOutput[]
+
+    // Helper: build the outputs array
+    const buildOutputs = () => {
       const outputs: { moduleId: string; content: string; lineCount: number }[] = [];
       for (const meta of CONSTITUTION_MODULE_META) {
         const m = modules[meta.id];
@@ -112,14 +160,15 @@ export function GenerationPanel() {
           });
         }
       }
+      return outputs;
+    };
 
+    const doCompile = async () => {
       const result = await apiCompile({
         projectName: projectName || 'Operational Constitution',
-        outputs,
+        outputs: buildOutputs(),
         complexity,
       });
-
-      // Transform CompileResult → GeneratedConstitution for the store
       setConstitution({
         documentTitle: projectName
           ? `${projectName} — Operational Constitution`
@@ -130,10 +179,39 @@ export function GenerationPanel() {
         generatedAt: Date.now(),
         complexity,
       });
+    };
+
+    try {
+      await doCompile();
     } catch (err: any) {
-      setPipelineError(`Compile failed: ${err.message}`);
+      if (isNetworkError(err)) {
+        // Backend sleeping — wake it up and retry
+        setWakeStatus('Servidor a arrancar (Render free tier)… aguarda um momento.');
+        const awake = await wakeBackend((attempt, elapsed) => {
+          setWakeStatus(
+            `Servidor a arrancar… tentativa ${attempt} (${elapsed}s)`
+          );
+        });
+        setWakeStatus(null);
+        if (awake) {
+          // Retry once after wake
+          try {
+            await doCompile();
+          } catch (retryErr: any) {
+            setPipelineError(`Compile failed: ${retryErr.message}`);
+          }
+        } else {
+          setPipelineError(
+            'Servidor não respondeu ao arranque (timeout 90s). ' +
+            'O Render free tier pode estar sobrecarregado — tenta de novo em 1-2 minutos.'
+          );
+        }
+      } else {
+        setPipelineError(`Compile failed: ${err.message}`);
+      }
     } finally {
       setIsCompiling(false);
+      setWakeStatus(null);
     }
   };
 
@@ -232,33 +310,43 @@ export function GenerationPanel() {
         {/* Stage 1: Generate modules */}
         <button
           onClick={generateAllModules}
-          disabled={anyGenerating}
+          disabled={anyGenerating || !!wakeStatus}
           className="w-full flex items-center justify-between px-4 py-3 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed rounded border border-zinc-700 transition-colors"
         >
           <div>
             <div className="text-sm font-medium text-zinc-200">
-              {anyGenerating ? 'Generating modules...' : 'Generate All Modules'}
+              {wakeStatus
+                ? 'A arrancar servidor…'
+                : anyGenerating
+                  ? 'Generating modules...'
+                  : 'Generate All Modules'}
             </div>
             <div className="text-xs text-zinc-500">{completed}/{total} complete</div>
           </div>
           <span className="text-zinc-400 text-sm">
-            {anyGenerating ? '◎' : '▶'}
+            {anyGenerating || wakeStatus ? '◎' : '▶'}
           </span>
         </button>
 
         {/* Stage 2: Compile */}
         <button
           onClick={compileFull}
-          disabled={isCompiling || completed < 3}
+          disabled={isCompiling || !!wakeStatus || completed < 3}
           className="w-full flex items-center justify-between px-4 py-3 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed rounded border border-zinc-700 transition-colors"
         >
           <div>
             <div className="text-sm font-medium text-zinc-200">
-              {isCompiling ? 'Compiling...' : 'Compile Constitution'}
+              {wakeStatus
+                ? 'A arrancar servidor…'
+                : isCompiling
+                  ? 'Compiling...'
+                  : 'Compile Constitution'}
             </div>
             <div className="text-xs text-zinc-500">Assemble final document</div>
           </div>
-          <span className="text-zinc-400 text-sm">{isCompiling ? '◎' : '📜'}</span>
+          <span className="text-zinc-400 text-sm">
+            {isCompiling || wakeStatus ? '◎' : '📜'}
+          </span>
         </button>
 
         {/* Stage 3: Audit */}
@@ -320,6 +408,14 @@ export function GenerationPanel() {
               {constitution.lineCount.toLocaleString()} lines · {constitution.sectionCount} sections
             </div>
           )}
+        </div>
+      )}
+
+      {/* Wake-up status (Render cold-start) */}
+      {wakeStatus && (
+        <div className="p-3 bg-amber-900/20 border border-amber-700/50 rounded text-xs text-amber-300 flex items-center gap-2">
+          <span className="animate-spin inline-block">⚡</span>
+          <span>{wakeStatus}</span>
         </div>
       )}
 

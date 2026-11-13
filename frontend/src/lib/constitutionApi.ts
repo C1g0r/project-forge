@@ -2,6 +2,38 @@
 
 const BASE = `${import.meta.env.VITE_API_URL ?? "https://project-forge-backend-2knl.onrender.com"}/api`;
 
+/**
+ * Wake the Render.com backend if it's sleeping.
+ * Returns true once the server responds, false if it times out.
+ */
+export async function wakeBackend(
+  onProgress?: (attempt: number, elapsed: number) => void
+): Promise<boolean> {
+  const TIMEOUT_MS = 90_000; // Render free tier can take ~60s to wake
+  const POLL_MS = 4_000;
+  const start = Date.now();
+  let attempt = 0;
+
+  while (Date.now() - start < TIMEOUT_MS) {
+    attempt++;
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 8_000);
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL ?? "https://project-forge-backend-2knl.onrender.com"}/health`,
+        { signal: ctrl.signal }
+      );
+      clearTimeout(timer);
+      if (res.ok) return true;
+    } catch {
+      // still sleeping — keep polling
+    }
+    onProgress?.(attempt, Math.round((Date.now() - start) / 1000));
+    await new Promise(r => setTimeout(r, POLL_MS));
+  }
+  return false;
+}
+
 export type ComplexityLevel = 'minimal' | 'standard' | 'deep' | 'full';
 export type ExportFormat = 'markdown' | 'txt' | 'json' | 'pdf';
 
