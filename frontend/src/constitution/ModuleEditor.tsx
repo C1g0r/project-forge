@@ -5,6 +5,7 @@ import {
   generateModule as apiGenerateModule,
   generateModuleStream,
 } from '../lib/constitutionApi';
+import { getRandomSuggestion } from './suggestions';
 
 interface Props {
   meta: ConstitutionModuleMeta;
@@ -40,10 +41,11 @@ export function ModuleEditor({ meta }: Props) {
     return ctx;
   };
 
-  // Auto-fill a field with its placeholder as a suggestion
+  // Auto-fill a field with a random thematic suggestion
   const handleSuggest = (fieldId: string, placeholder: string | undefined) => {
-    if (placeholder) {
-      setModuleInput(meta.id, fieldId, placeholder);
+    const suggestion = getRandomSuggestion(meta.id, fieldId, placeholder);
+    if (suggestion) {
+      setModuleInput(meta.id, fieldId, suggestion);
     }
   };
 
@@ -145,14 +147,14 @@ export function ModuleEditor({ meta }: Props) {
                     <span className="ml-1 font-bold text-amber-400">*</span>
                   )}
                 </label>
-                {field.required && field.placeholder && (
+                {field.required && (
                   <button
                     type="button"
                     onClick={() => handleSuggest(field.id, field.placeholder)}
-                    className="flex items-center gap-1 px-2 py-0.5 bg-zinc-800 hover:bg-amber-500/20 border border-zinc-700 hover:border-amber-500/50 rounded text-xs text-zinc-500 hover:text-amber-400 transition-all"
-                    title="Preencher com sugestão de exemplo"
+                    className="flex items-center gap-1 px-2 py-0.5 bg-zinc-800 hover:bg-amber-500/20 border border-zinc-700 hover:border-amber-500/50 rounded text-xs text-zinc-500 hover:text-amber-400 transition-all group"
+                    title="Sugestão aleatória temática — clica de novo para outra"
                   >
-                    <span>⚡</span>
+                    <span className="group-hover:rotate-180 transition-transform duration-300 inline-block">⚡</span>
                     <span>Sugerir</span>
                   </button>
                 )}
