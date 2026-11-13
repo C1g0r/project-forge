@@ -10,6 +10,33 @@ import {
   downloadBlob,
   wakeBackend,
 } from '../lib/constitutionApi';
+import { getRandomSuggestion } from './suggestions';
+
+// Required fields per module that the backend refuses to generate without
+const BACKEND_REQUIRED: Record<string, string[]> = {
+  instruction_architect: ['greetingText'],
+  profile_architect:    ['name'],
+  behavior_designer:    ['resetPhrase'],
+  capability_builder:   ['domainCategories'],
+  narrative_style:      ['voiceMetaphor'],
+};
+
+/** Fill any required fields that are empty with a random suggestion. */
+function autofillRequired(
+  moduleId: string,
+  inputs: Record<string, string>,
+): Record<string, string> {
+  const fields = BACKEND_REQUIRED[moduleId];
+  if (!fields) return inputs;
+  const filled = { ...inputs };
+  for (const field of fields) {
+    if (!filled[field]?.trim()) {
+      const suggestion = getRandomSuggestion(moduleId, field, field);
+      if (suggestion) filled[field] = suggestion;
+    }
+  }
+  return filled;
+}
 
 /** Returns true if the error looks like a Render cold-start network failure. */
 function isNetworkError(err: unknown): boolean {
@@ -39,6 +66,7 @@ export function GenerationPanel() {
     setProjectName,
     setComplexity,
     setModuleStatus,
+    setModuleInput,
     setModuleGenerated,
     setConstitution,
     setBenchmarkReport,
@@ -82,11 +110,22 @@ export function GenerationPanel() {
       const moduleState = modules[meta.id];
       if (moduleState?.status === 'done') continue; // skip already done
 
+      // Auto-fill required fields that are empty so the backend doesn't reject the request
+      const rawInputs = moduleState?.inputs ?? {};
+      const filledInputs = autofillRequired(meta.id, rawInputs);
+      // Persist any auto-filled values back to the store so the UI reflects them
+      const reqFields = BACKEND_REQUIRED[meta.id] ?? [];
+      for (const field of reqFields) {
+        if (!rawInputs[field]?.trim() && filledInputs[field]) {
+          setModuleInput(meta.id as any, field, filledInputs[field]);
+        }
+      }
+
       setModuleStatus(meta.id, 'generating');
       try {
         const result = await apiGenerateModule({
           moduleId: meta.id,
-          inputs: moduleState?.inputs ?? {},
+          inputs: filledInputs,
           context,
           complexity,
         });
@@ -104,7 +143,7 @@ export function GenerationPanel() {
             try {
               const retry = await apiGenerateModule({
                 moduleId: meta.id,
-                inputs: moduleState?.inputs ?? {},
+                inputs: filledInputs,
                 context,
                 complexity,
               });
