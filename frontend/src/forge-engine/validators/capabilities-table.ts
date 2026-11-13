@@ -10,10 +10,38 @@ const KEYWORDS = [
   'tabela', 'matriz', 'matrix', 'can do', 'will do', 'o que faz',
 ];
 
-// Dangerous categories that MUST have operational=blocked
+// Hard lines — MUST appear as blocked/non-activatable, never as activatable rows
+// These cannot be unlocked by any module; presence in activatable context = critical error
+const ABSOLUTE_HARD_LINES = [
+  { key: 'csam', label: 'CSAM (conteúdo sexual de menores)' },
+  { key: 'menores', label: 'conteúdo sexual de menores' },
+  { key: 'child sexual', label: 'child sexual abuse material' },
+  { key: 'targeting.*indivíduo', label: 'targeting destrutivo de indivíduos reais' },
+  { key: 'targeting.*individual', label: 'destructive targeting of real individuals' },
+];
+
+// Intent-axis columns expected in a well-formed capabilities matrix
+const INTENT_AXIS_KEYWORDS = [
+  ['análise', 'analysis', 'analise'],
+  ['deteção', 'detecção', 'detection', 'defesa', 'defense'],
+  ['prevenção', 'prevention', 'prevencao'],
+  ['red team', 'investigação', 'research', 'simulação', 'simulation'],
+  ['execução', 'operacional', 'execution', 'operational'],
+];
+
+// Domain rows expected in a comprehensive capabilities matrix
+const DOMAIN_ROWS = [
+  ['keylogger', 'keyboard hook', 'hooking'],
+  ['malware', 'rat', 'remote access trojan', 'c2', 'command and control'],
+  ['exploit', 'shellcode', 'payload', 'rootkit'],
+  ['explosivo', 'explosive', 'pipe bomb', 'tradecraft'],
+  ['engenharia social', 'social engineering', 'phishing'],
+];
+
+// Hard-blocked categories that MUST have explicit block markers when mentioned
 const HARD_BLOCKED_CATEGORIES = [
-  'pipe bomb', 'explosive', 'explosivo', 'csam', 'child', 'menor',
-  'bioweapon', 'arma biológica', 'nuclear',
+  'pipe bomb', 'explosive', 'explosivo', 'csam', 'child sexual',
+  'bioweapon', 'arma biológica', 'nuclear weapon',
 ];
 
 // Categories that need explicit operational stance
@@ -104,6 +132,62 @@ export function validateCapabilitiesTable(doc: ParsedDocument): ModuleResult {
       message: 'Documento pode tentar anular salvaguardas efetivas do modelo-base.',
       suggestion: 'Remover instruções que tentem contornar mecanismos de proteção fundamentais do modelo.',
     });
+  }
+
+  // Check: intent-axis columns present (análise, deteção, prevenção, red team, execução)
+  const intentAxisCoverage = INTENT_AXIS_KEYWORDS.filter((synonyms) =>
+    synonyms.some((kw) => fullText.includes(kw))
+  );
+  if (intentAxisCoverage.length < 3) {
+    issues.push({
+      severity: 'warning',
+      code: 'CT_007',
+      message: `Eixo de intenção incompleto — apenas ${intentAxisCoverage.length}/5 colunas detetadas (análise, deteção, prevenção, red team, execução).`,
+      suggestion: 'Diferenciar capacidades por intenção: análise ≠ deteção ≠ execução. Permite casos legítimos sem perder distinção.',
+    });
+  }
+
+  // Check: domain rows covered (keylogger, malware, exploit, explosive, social engineering)
+  const domainCoverage = DOMAIN_ROWS.filter((synonyms) =>
+    synonyms.some((kw) => fullText.includes(kw))
+  );
+  if (domainCoverage.length < 3) {
+    issues.push({
+      severity: 'warning',
+      code: 'CT_008',
+      message: `Cobertura de domínios insuficiente — ${domainCoverage.length}/5 domínios detetados (keylogger, malware, exploit, explosivos, engenharia social).`,
+      suggestion: 'Cobrir todos os domínios operacionais relevantes para definir claramente o envelope de capacidades.',
+    });
+  }
+
+  // Check: hard lines explicitly declared as non-overridable
+  const hasHardLineSection = /hard line|linha.*dura|não desbloqueável|não.*anulável|never.*override|absolute.*limit|bloqueio.*absoluto/.test(fullText);
+  if (!hasHardLineSection) {
+    issues.push({
+      severity: 'warning',
+      code: 'CT_009',
+      message: 'Secção de "Hard Lines" (limites absolutos não anuláveis) não detetada.',
+      suggestion: 'Declarar explicitamente as categorias que nenhum módulo pode desbloquear — CSAM, targeting de indivíduos, operações irreversíveis sem confirmação.',
+    });
+  }
+
+  // Check: absolute hard line categories not appearing as activatable rows
+  for (const hardLine of ABSOLUTE_HARD_LINES) {
+    const regex = new RegExp(hardLine.key, 'i');
+    if (regex.test(fullText)) {
+      // Found in doc — verify it's NOT in an activatable context (✓ or "full" or "sim" near it)
+      const matchIdx = fullText.search(regex);
+      const context = fullText.substring(Math.max(0, matchIdx - 60), matchIdx + 120);
+      const activatable = /✓|✔|yes|sim\b|full|enabled|ativad|operational.*✓/.test(context);
+      if (activatable) {
+        issues.push({
+          severity: 'critical',
+          code: 'CT_010',
+          message: `Hard line "${hardLine.label}" aparece como categoria ativável — isto é uma violação de arquitetura.`,
+          suggestion: 'Hard lines nunca podem aparecer como linhas ativáveis na tabela. Mover para a secção de bloqueios absolutos.',
+        });
+      }
+    }
   }
 
   // Parse capabilities (best-effort)
