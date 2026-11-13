@@ -83,6 +83,8 @@ export function GenerationPanel() {
   const [pipelineError, setPipelineError] = useState<string | null>(null);
   // Wake-up state: null = idle, string = status message shown while server wakes
   const [wakeStatus, setWakeStatus] = useState<string | null>(null);
+  // Force regenerate mode: when true, skips the 'done' check and regenerates all
+  const [forceRegenerate, setForceRegenerate] = useState(false);
 
   const completed = getCompletedModuleCount();
   const total = getTotalModuleCount();
@@ -99,16 +101,28 @@ export function GenerationPanel() {
     return ctx;
   };
 
-  const generateAllModules = async () => {
+  const generateAllModules = async (force = false) => {
     setPipelineError(null);
     setWakeStatus(null);
     const context = buildContext();
+
+    // Check if there's anything to do
+    const pending = CONSTITUTION_MODULE_META.filter(meta => {
+      if (meta.id === 'constitution_compiler') return false;
+      if (!force && modules[meta.id]?.status === 'done') return false;
+      return true;
+    });
+
+    if (pending.length === 0) {
+      setPipelineError('Todos os módulos já estão completos. Usa "Regenerar Tudo" para regenerar.');
+      return;
+    }
 
     for (const meta of CONSTITUTION_MODULE_META) {
       if (meta.id === 'constitution_compiler') continue; // compiled separately
 
       const moduleState = modules[meta.id];
-      if (moduleState?.status === 'done') continue; // skip already done
+      if (!force && moduleState?.status === 'done') continue; // skip already done
 
       // Auto-fill required fields that are empty so the backend doesn't reject the request
       const rawInputs = moduleState?.inputs ?? {};
@@ -347,25 +361,35 @@ export function GenerationPanel() {
         <div className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Pipeline</div>
 
         {/* Stage 1: Generate modules */}
-        <button
-          onClick={generateAllModules}
-          disabled={anyGenerating || !!wakeStatus}
-          className="w-full flex items-center justify-between px-4 py-3 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed rounded border border-zinc-700 transition-colors"
-        >
-          <div>
-            <div className="text-sm font-medium text-zinc-200">
-              {wakeStatus
-                ? 'A arrancar servidor…'
-                : anyGenerating
-                  ? 'Generating modules...'
-                  : 'Generate All Modules'}
+        <div className="flex gap-2">
+          <button
+            onClick={() => generateAllModules(false)}
+            disabled={anyGenerating || !!wakeStatus}
+            className="flex-1 flex items-center justify-between px-4 py-3 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed rounded border border-zinc-700 transition-colors"
+          >
+            <div>
+              <div className="text-sm font-medium text-zinc-200">
+                {wakeStatus
+                  ? 'A arrancar servidor…'
+                  : anyGenerating
+                    ? 'Generating modules...'
+                    : 'Generate All Modules'}
+              </div>
+              <div className="text-xs text-zinc-500">{completed}/{total} complete</div>
             </div>
-            <div className="text-xs text-zinc-500">{completed}/{total} complete</div>
-          </div>
-          <span className="text-zinc-400 text-sm">
-            {anyGenerating || wakeStatus ? '◎' : '▶'}
-          </span>
-        </button>
+            <span className="text-zinc-400 text-sm">
+              {anyGenerating || wakeStatus ? '◎' : '▶'}
+            </span>
+          </button>
+          <button
+            onClick={() => generateAllModules(true)}
+            disabled={anyGenerating || !!wakeStatus}
+            title="Regenerar todos os módulos (ignora os já concluídos)"
+            className="px-3 py-3 bg-zinc-800 hover:bg-amber-900/40 disabled:opacity-50 disabled:cursor-not-allowed rounded border border-zinc-700 hover:border-amber-700 transition-colors text-zinc-400 hover:text-amber-400 text-xs"
+          >
+            ↺
+          </button>
+        </div>
 
         {/* Stage 2: Compile */}
         <button
