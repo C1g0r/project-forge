@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { ShieldCheck, AlertTriangle, XCircle, Repeat, Lightbulb, ChevronDown, ChevronRight, Sparkles, CheckCircle2, Loader2, SkipForward } from "lucide-react";
 import { useProjectStore } from "../store/projectStore";
 import { validateDocument, streamImproveDocument, SessionExpiredError } from "../lib/api";
+import { ForgeAnalyzer } from "./ForgeAnalyzer";
 
 function ScoreRing({ score }: { score: number }) {
   const r = 36;
@@ -74,8 +75,11 @@ type ChapterProgress = {
   status: "pending" | "start" | "done" | "skip";
 };
 
+type TabId = "quality" | "forge";
+
 export function ValidatorPanel() {
   const { validationReport, sessionId, blueprint, setValidationReport, setStep, setLoading, setError, isLoading } = useProjectStore();
+  const [activeTab, setActiveTab] = useState<TabId>("quality");
   const [ran, setRan] = useState(!!validationReport);
   const [improving, setImproving] = useState(false);
   const [improveProgress, setImproveProgress] = useState<ChapterProgress[]>([]);
@@ -146,6 +150,45 @@ export function ValidatorPanel() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
+      {/* Tab switcher */}
+      <div className="flex border border-zinc-800 rounded-xl overflow-hidden">
+        <button
+          onClick={() => setActiveTab("quality")}
+          className={`flex-1 text-xs font-medium py-2.5 transition-colors ${
+            activeTab === "quality"
+              ? "bg-zinc-800 text-zinc-100"
+              : "text-zinc-500 hover:text-zinc-300"
+          }`}
+        >
+          🛡 Validação de Qualidade
+        </button>
+        <button
+          onClick={() => setActiveTab("forge")}
+          className={`flex-1 text-xs font-medium py-2.5 transition-colors ${
+            activeTab === "forge"
+              ? "bg-zinc-800 text-zinc-100"
+              : "text-zinc-500 hover:text-zinc-300"
+          }`}
+        >
+          🔬 Análise de Prompt
+        </button>
+      </div>
+
+      {/* Forge tab */}
+      {activeTab === "forge" && (
+        <>
+          <ForgeAnalyzer />
+          <button
+            onClick={() => setStep("writing")}
+            className="w-full text-zinc-600 hover:text-zinc-400 active:text-zinc-300 text-sm transition-colors py-2"
+          >
+            ← Voltar à escrita
+          </button>
+        </>
+      )}
+
+      {/* Quality tab */}
+      {activeTab === "quality" && <>
       {/* stats do documento */}
       <div className="grid grid-cols-3 gap-2 sm:gap-3">
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2 sm:p-3 text-center">
@@ -304,6 +347,7 @@ export function ValidatorPanel() {
       >
         ← Voltar à escrita
       </button>
+      </>}
     </div>
   );
 }
