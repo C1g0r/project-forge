@@ -21,6 +21,8 @@ import { exportToMarkdown } from "./export/markdown.ts";
 import { exportValidationReport } from "./export/validation.ts";
 import { improveDocument } from "./pipeline/improver.ts";
 import type { DocumentBlueprint, Chapter } from "./pipeline/architect.ts";
+import { reviewModules } from "./pipeline/module-reviewer.ts";
+import type { ModuleInput } from "./pipeline/module-reviewer.ts";
 
 const app = express();
 const allowedOrigins = process.env.ALLOWED_ORIGINS
@@ -308,6 +310,28 @@ app.get("/api/session/:sid/export/validation", (req, res) => {
   res.setHeader("Content-Type", "text/markdown");
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
   res.send(md);
+});
+
+// ── MODULES REVIEW (AI Logic Reviewer para sistema de 7 módulos) ─────────────
+app.post("/api/modules/review", async (req, res) => {
+  try {
+    const { projectName, modules } = req.body as {
+      projectName: string;
+      modules: ModuleInput[];
+    };
+
+    if (!modules || !Array.isArray(modules) || modules.length === 0) {
+      res.status(400).json({ error: "Falta lista de módulos." });
+      return;
+    }
+
+    const report = await reviewModules(projectName ?? "Projeto", modules);
+    res.json({ report });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("modules/review error:", msg);
+    res.status(500).json({ error: "Erro na revisão de módulos.", detail: msg });
+  }
 });
 
 // ── GLOBAL ERROR HANDLER (captura erros que escapam dos routes) ──────────────

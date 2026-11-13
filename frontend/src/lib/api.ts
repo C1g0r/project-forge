@@ -183,3 +183,52 @@ export function exportMarkdownUrl(sid: string): string {
 export function exportValidationUrl(sid: string): string {
   return `${BASE}/session/${sid}/export/validation`;
 }
+
+// ── MODULES REVIEW (AI Logic Reviewer para sistema de 7 módulos) ─────────────
+
+export interface ModulePayload {
+  id: string;
+  label: string;
+  content: string;
+}
+
+export interface AIReviewIssue {
+  module: string;
+  moduleLabel: string;
+  severity: "critical" | "warning" | "info";
+  description: string;
+  suggestion: string;
+}
+
+export interface AIReviewReport {
+  score: number;
+  verdict: string;
+  issues: AIReviewIssue[];
+  strengths: string[];
+}
+
+export async function reviewModules(
+  projectName: string,
+  modules: ModulePayload[]
+): Promise<AIReviewReport> {
+  const res = await fetch(`${BASE}/modules/review`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ projectName, modules }),
+    signal: AbortSignal.timeout(90000),
+  });
+  if (!res.ok) {
+    let detail = "";
+    try {
+      const j = await res.json();
+      detail = j.detail || j.error || "";
+    } catch {
+      /* ignore */
+    }
+    if (res.status === 429)
+      throw new Error("Quota do modelo IA esgotada. Tenta novamente em alguns minutos.");
+    throw new Error(detail || `Erro ${res.status}`);
+  }
+  const data = await res.json();
+  return data.report as AIReviewReport;
+}
