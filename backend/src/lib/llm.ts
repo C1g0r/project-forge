@@ -1,72 +1,119 @@
 import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 
-// Provider: coarena.ai — OpenAI-compatible proxy para Claude
-// Env vars necessárias em Render:
-//   ANTHROPIC_BASE_URL   = https://coarena.ai/api
-//   ANTHROPIC_AUTH_TOKEN = coa_xxxx...  (a tua chave coarena)
-//
-// Fallback para Groq se ANTHROPIC_BASE_URL não estiver definido:
-//   GROQ_API_KEY = gsk_xxxx...
+// ─── Provider detection ───────────────────────────────────────────────────────
+// ANTHROPIC_BASE_URL set  → coarena.ai  (Anthropic native SDK)
+// ANTHROPIC_BASE_URL unset → Groq        (OpenAI-compatible SDK)
 
 const useCoarena = !!process.env.ANTHROPIC_BASE_URL;
 
+// ─── Clients ──────────────────────────────────────────────────────────────────
+
+// Groq client (OpenAI-compatible) — só usado se useCoarena = false
 export const llm = new OpenAI({
-  apiKey:  useCoarena
-    ? (process.env.ANTHROPIC_AUTH_TOKEN ?? "")
-    : (process.env.GROQ_API_KEY ?? ""),
-  baseURL: useCoarena
-    ? process.env.ANTHROPIC_BASE_URL
-    : "https://api.groq.com/openai/v1",
+  apiKey:  process.env.GROQ_API_KEY ?? "",
+  baseURL: "https://api.groq.com/openai/v1",
 });
 
-// Modelo principal — override via env var ANTHROPIC_MODEL ou GROQ_MODEL
-// Modelos coarena.ai (Claude via proxy):
-//   claude-opus-5-5        — máxima qualidade
-//   claude-sonnet-5-5      — equilíbrio qualidade/velocidade
-//   claude-haiku-5-5       — mais rápido
-// Modelos Groq (fallback):
-//   openai/gpt-oss-120b, openai/gpt-oss-20b, qwen/qwen3.8-27b
+// coarena.ai client (Anthropic native) — só usado se useCoarena = true
+export const anthropicClient = new Anthropic({
+  baseURL: process.env.ANTHROPIC_BASE_URL,
+  apiKey:  process.env.ANTHROPIC_AUTH_TOKEN ?? "",
+});
+
+// ─── Model names ─────────────────────────────────────────────────────────────
+// coarena: claude-fable-5 / claude-sonnet-5-5 / claude-haiku-5-5
+// Groq:    openai/gpt-oss-120b / openai/gpt-oss-20b
+
 export const MODEL = useCoarena
-  ? (process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5-5")
-  : (process.env.GROQ_MODEL ?? "openai/gpt-oss-20b");
+  ? (process.env.ANTHROPIC_MODEL ?? "claude-fable-5")
+  : (process.env.GROQ_MODEL      ?? "openai/gpt-oss-20b");
 
 export const MODEL_FAST = useCoarena
   ? (process.env.ANTHROPIC_MODEL_FAST ?? "claude-haiku-5-5")
-  : (process.env.GROQ_MODEL_FAST ?? "openai/gpt-oss-20b");
+  : (process.env.GROQ_MODEL_FAST      ?? "openai/gpt-oss-20b");
 
-// Fallback chain — só activo no modo Groq
+// Fallback chain só activo no Groq
 export const FALLBACK_MODELS: string[] = useCoarena
-  ? [] // coarena não precisa de fallback chain (quota por token, não por modelo)
+  ? []
   : ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "qwen/qwen3.8-27b"];
 
-// Limites de output por modelo
 const MODEL_MAX_OUTPUT: Record<string, number> = {
-  "qwen/qwen3.8-27b": 900, // Groq free tier OTPM limit
+  "qwen/qwen3.8-27b": 900,
 };
 
+// ─── Unified response type ────────────────────────────────────────────────────
+// Wrapper normalises both providers to { text: string }
+
+export interface LLMResponse {
+  text: string;
+}
+
+// ─── Unified chat call ────────────────────────────────────────────────────────
 /**
- * Wrapper para criar completions com fallback automático em caso de 429 TPD (Groq).
- * Em modo coarena: tenta apenas o modelo configurado, sem fallback.
+ * Single entry-point for all LLM calls in generator.ts.
+ * Accepts OpenAI-style message array + system string.
+ * Routes to Anthropic SDK (coarena) or OpenAI SDK (Groq) transparently.
  */
+export async function chat(params: {
+  model?:      string;
+  system?:     string;
+  messages:    { role: "user" | "assistant"; content: string }[];
+  max_tokens?: number;
+}): Promise<LLMResponse> {
+  const model      = params.model      ?? MODEL;
+  const max_tokens = params.max_tokens ?? 8192;
+
+  if (useCoarena) {
+    // ── Anthropic native ──────────────────────────────────────────────────
+    const response = await anthropicClient.messages.create({
+      model,
+      max_tokens,
+      system:   params.system,
+      messages: params.messages,
+    });
+    const text = response.content
+      .filter((b): b is Anthropic.TextBlock => b.type === "text")
+      .map(b => b.text)
+      .join("");
+    return { text };
+
+  } else {
+    // ── Groq / OpenAI-compatible ──────────────────────────────────────────
+    const openaiMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
+    if (params.system) {
+      openaiMessages.push({ role: "system", content: params.system });
+    }
+    for (const m of params.messages) {
+      openaiMessages.push({ role: m.role, content: m.content });
+    }
+    const result = await createWithFallback({
+      model,
+      messages: openaiMessages,
+      max_tokens,
+    });
+    return { text: result.choices[0]?.message?.content ?? "" };
+  }
+}
+
+// ─── Groq fallback wrapper (kept for internal use by chat()) ─────────────────
 export async function createWithFallback(
   params: Parameters<typeof llm.chat.completions.create>[0]
-): Promise<Awaited<ReturnType<typeof llm.chat.completions.create>>> {
-  const models = [params.model as string, ...FALLBACK_MODELS.filter((m) => m !== params.model)];
+): Promise<OpenAI.Chat.ChatCompletion> {
+  const models = [params.model as string, ...FALLBACK_MODELS.filter(m => m !== params.model)];
   let lastErr: unknown;
   for (const model of models) {
     try {
-      const modelCap = MODEL_MAX_OUTPUT[model];
+      const modelCap       = MODEL_MAX_OUTPUT[model];
       const requestedTokens = (params as { max_tokens?: number }).max_tokens;
-      const cappedTokens = modelCap && requestedTokens && requestedTokens > modelCap
-        ? modelCap
-        : requestedTokens;
-
+      const cappedTokens   = modelCap && requestedTokens && requestedTokens > modelCap
+        ? modelCap : requestedTokens;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return await (llm.chat.completions.create as any)({ ...params, model, max_tokens: cappedTokens }) as any;
     } catch (err: unknown) {
-      const e = err as { status?: number; message?: string };
+      const e = err as { status?: number };
       if (e?.status === 429 && FALLBACK_MODELS.length > 0) {
-        console.warn(`Model ${model} quota exhausted (429), trying next fallback...`);
+        console.warn(`Model ${model} quota exhausted (429), trying next…`);
         lastErr = err;
         continue;
       }

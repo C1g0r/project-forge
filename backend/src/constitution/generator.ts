@@ -1,7 +1,7 @@
 // OPERATIONAL CONSTITUTION ENGINE — Module Generator
 // Generates AI operational constitution sections per module
 
-import { llm, MODEL, MODEL_FAST } from "../lib/llm.ts";
+import { chat, MODEL, MODEL_FAST } from "../lib/llm.ts";
 
 export type ConstitutionModuleId =
   | 'profile_architect'
@@ -306,42 +306,22 @@ export async function generateModule(req: ModuleGenerationRequest): Promise<stri
 
   const userMessage = `${complexityGuide}\n\nGenerate the constitutional sections for this module now. Write in the voice of the constitution itself — as if the document is speaking the AI into existence. Markdown formatting. Headers with ================== borders for major sections. All content in English unless the constitution specifies otherwise.\n\nDo not include any meta-commentary, preamble, or "Here is the section..." framing. Output the section content directly.${contextLines.join('')}`;
 
+  const maxTokens = complexity === 'full' ? 8000 : complexity === 'deep' ? 6000 : complexity === 'standard' ? 4000 : 2000;
+
+  // Streaming not yet supported via unified chat() — use non-streaming for all providers
+  // onToken callback kept in signature for future streaming support
+  const response = await chat({
+    model:      MODEL,
+    system:     systemPrompt,
+    messages:   [{ role: 'user', content: userMessage }],
+    max_tokens: maxTokens,
+  });
+
   if (onToken) {
-    // Streaming mode
-    let fullContent = '';
-    const stream = await llm.chat.completions.create({
-      model: MODEL,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage },
-      ],
-      max_tokens: complexity === 'full' ? 8000 : complexity === 'deep' ? 6000 : complexity === 'standard' ? 4000 : 2000,
-      temperature: 0.85,
-      stream: true,
-    });
-
-    for await (const chunk of stream) {
-      const token = chunk.choices[0]?.delta?.content ?? '';
-      if (token) {
-        fullContent += token;
-        onToken(token);
-      }
-    }
-    return fullContent;
-  } else {
-    // Non-streaming mode
-    const response = await llm.chat.completions.create({
-      model: MODEL,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage },
-      ],
-      max_tokens: complexity === 'full' ? 8000 : complexity === 'deep' ? 6000 : complexity === 'standard' ? 4000 : 2000,
-      temperature: 0.85,
-    });
-
-    return response.choices[0]?.message?.content ?? '';
+    // Simulate streaming by emitting full content as single token
+    onToken(response.text);
   }
+  return response.text;
 }
 
 // Generate the WHAT YOU ARE section specifically for profile module
