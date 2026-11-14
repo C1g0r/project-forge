@@ -27,17 +27,17 @@ export interface QualityReport {
 
 export interface GeneratedPrompt {
   id: string;
-  content: string;
+  prompt: string;
   module: string;
   subcategory: string;
   targetModel: string;
-  buildLevel: string;
-  intent: string;
-  qualityReport: QualityReport;
-  metadata: {
+  level: string;
+  createdAt: string;
+  quality: QualityReport & { coverage: number };
+  _meta: {
+    intent: string;
     wordCount: number;
     characterCount: number;
-    generatedAt: string;
     phasesCompleted: number;
   };
 }
@@ -211,24 +211,30 @@ Apply all 10 phases. Return only the JSON response.`;
      criteria.coherence * 0.10)
   );
 
+  // Coverage: ratio of module guidance points addressed (heuristic based on prompt length)
+  const coverage = Math.min(100, Math.round((promptText.length / 500) * 100));
+
   return {
     id: `pf_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
-    content: promptText,
+    // Field names aligned with frontend GeneratedPrompt type
+    prompt: promptText,
     module: req.module,
     subcategory: req.subcategory,
     targetModel: req.targetModel,
-    buildLevel: req.buildLevel,
-    intent: req.intent,
-    qualityReport: {
+    level: req.buildLevel,
+    createdAt: new Date().toISOString(),
+    quality: {
       score,
       criteria,
       issues: Array.isArray(quality.issues) ? quality.issues : [],
       suggestions: Array.isArray(quality.suggestions) ? quality.suggestions : [],
+      coverage,
     },
-    metadata: {
+    // Extra metadata for debugging / future use
+    _meta: {
+      intent: req.intent,
       wordCount: promptText.split(/\s+/).filter(Boolean).length,
       characterCount: promptText.length,
-      generatedAt: new Date().toISOString(),
       phasesCompleted: 10,
     },
   };
