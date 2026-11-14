@@ -40,6 +40,8 @@ import { generateAdversarialTests } from "./constitution/adversarial.ts";
 import type { AdversarialRequest } from "./constitution/adversarial.ts";
 import { exportConstitution, getContentType } from "./constitution/exporter.ts";
 import type { ExportRequest, ExportFormat } from "./constitution/exporter.ts";
+import { generatePrompt } from "./prompt/generator.ts";
+import type { PromptBuildRequest } from "./prompt/generator.ts";
 
 const app = express();
 const allowedOrigins = process.env.ALLOWED_ORIGINS
@@ -557,6 +559,43 @@ app.post("/api/constitution/export", async (req, res) => {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("constitution/export error:", msg);
     res.status(500).json({ error: msg });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════════════
+// PROMPT FORGE — Routes
+// ════════════════════════════════════════════════════════════════════════
+
+// POST /api/prompt/generate
+// 10-phase intelligent prompt generation engine
+app.post("/api/prompt/generate", async (req, res) => {
+  try {
+    const buildReq = req.body as PromptBuildRequest;
+
+    if (!buildReq.module || !buildReq.intent || !buildReq.targetModel) {
+      res.status(400).json({ error: "module, intent e targetModel são obrigatórios." });
+      return;
+    }
+
+    if (buildReq.intent.trim().length < 10) {
+      res.status(400).json({ error: "Intent demasiado curto. Descreve melhor o que queres." });
+      return;
+    }
+
+    const result = await generatePrompt({
+      module: buildReq.module,
+      subcategory: buildReq.subcategory ?? "",
+      buildLevel: buildReq.buildLevel ?? "advanced",
+      targetModel: buildReq.targetModel,
+      intent: buildReq.intent.trim(),
+      parameters: buildReq.parameters ?? {},
+    });
+
+    res.json(result);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("prompt/generate error:", msg);
+    res.status(500).json({ error: "Erro ao gerar prompt.", detail: msg });
   }
 });
 
