@@ -1,55 +1,188 @@
 import { usePromptStore } from './store/usePromptStore';
-import { Header } from './components/forge/Header';
+import { Sidebar } from './components/layout/Sidebar';
+import { WorkspaceHeader } from './components/layout/WorkspaceHeader';
+
+// ── Pages ────────────────────────────────────────────────────────────────────
+import { CommandCenter } from './components/pages/CommandCenter';
+
+// ── Legacy forge views ──────────────────────────────────────────────────────
 import { ModuleGrid } from './components/forge/ModuleGrid';
 import { PromptBuilder } from './components/forge/PromptBuilder';
 import { PromptOutput } from './components/forge/PromptOutput';
 import { HistorySidebar } from './components/forge/HistorySidebar';
+
+// ── Placeholder component for unimplemented views ───────────────────────────
+function ComingSoon({ label }: { label: string }) {
+  return (
+    <div
+      style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '12px',
+        color: 'var(--muted)',
+      }}
+    >
+      <div
+        style={{
+          width: '48px',
+          height: '48px',
+          borderRadius: 'var(--radius-xl)',
+          background: 'var(--primary-subtle)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '22px',
+        }}
+      >
+        🔧
+      </div>
+      <div>
+        <div
+          style={{
+            fontSize: '15px',
+            fontWeight: 500,
+            color: 'var(--foreground-secondary)',
+            textAlign: 'center',
+          }}
+        >
+          {label}
+        </div>
+        <div style={{ fontSize: '12px', color: 'var(--muted)', textAlign: 'center', marginTop: '4px' }}>
+          Em desenvolvimento
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── App ─────────────────────────────────────────────────────────────────────
 
 export default function App() {
   const { view } = usePromptStore();
 
   return (
     <div
-      className="min-h-screen flex flex-col text-white overflow-hidden"
-      style={{ background: '#080810' }}
+      style={{
+        display: 'flex',
+        height: '100vh',
+        width: '100vw',
+        backgroundColor: 'var(--background)',
+        overflow: 'hidden',
+        position: 'relative',
+      }}
     >
-      {/* Background effects */}
-      <div className="fixed inset-0 pointer-events-none">
+      {/* ── Cinematic background glows ────────────────────────── */}
+      <div
+        style={{
+          position: 'fixed',
+          inset: 0,
+          pointerEvents: 'none',
+          zIndex: 0,
+          overflow: 'hidden',
+        }}
+      >
         <div
-          className="absolute -top-40 -left-40 w-96 h-96 rounded-full blur-3xl opacity-20"
-          style={{ background: 'radial-gradient(circle, #6366f1, transparent 70%)' }}
+          style={{
+            position: 'absolute',
+            top: '-160px',
+            left: '-160px',
+            width: '480px',
+            height: '480px',
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(128,103,255,0.14) 0%, transparent 70%)',
+            filter: 'blur(60px)',
+          }}
         />
         <div
-          className="absolute -bottom-40 -right-40 w-96 h-96 rounded-full blur-3xl opacity-15"
-          style={{ background: 'radial-gradient(circle, #8b5cf6, transparent 70%)' }}
-        />
-        <div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full blur-3xl opacity-5"
-          style={{ background: 'radial-gradient(circle, #a855f7, transparent 60%)' }}
+          style={{
+            position: 'absolute',
+            bottom: '-160px',
+            right: '-160px',
+            width: '480px',
+            height: '480px',
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(39,215,229,0.08) 0%, transparent 70%)',
+            filter: 'blur(60px)',
+          }}
         />
       </div>
 
-      {/* Grid overlay */}
+      {/* ── Sidebar ───────────────────────────────────────────── */}
+      <Sidebar />
+
+      {/* ── Main area: header + workspace ────────────────────── */}
       <div
-        className="fixed inset-0 pointer-events-none opacity-[0.03]"
         style={{
-          backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)',
-          backgroundSize: '50px 50px',
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          position: 'relative',
+          zIndex: 1,
         }}
-      />
+      >
+        <WorkspaceHeader />
 
-      {/* App shell */}
-      <div className="relative z-10 flex flex-col h-screen">
-        <Header />
+        <main
+          style={{
+            flex: 1,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            backgroundColor: 'var(--background)',
+          }}
+        >
+          {/* ── WORKSPACE ─────────────────────────────────────── */}
+          {view === 'home'      && <CommandCenter />}
+          {view === 'builder'   && <PromptBuilder />}
+          {view === 'output'    && <PromptOutput />}
+          {view === 'canvas'    && <ComingSoon label="Canvas — Visual Prompt Graph" />}
+          {view === 'projects'  && <ComingSoon label="Projects" />}
+          {view === 'library'   && <ComingSoon label="Library" />}
+          {view === 'favorites' && <ComingSoon label="Favorites" />}
 
-        <main className="flex-1 overflow-hidden flex flex-col">
-          {view === 'home' && <ModuleGrid />}
-          {view === 'builder' && <PromptBuilder />}
-          {view === 'output' && <PromptOutput />}
+          {/* ── STUDIOS ───────────────────────────────────────── */}
+          {view === 'studio-image'      && <ComingSoon label="Image Studio" />}
+          {view === 'studio-video'      && <ComingSoon label="Video Studio" />}
+          {view === 'studio-music'      && <ComingSoon label="Music Studio" />}
+          {view === 'studio-text'       && <ComingSoon label="Text Studio" />}
+          {view === 'studio-code'       && <ComingSoon label="Code Studio" />}
+          {view === 'studio-3d'         && <ComingSoon label="3D / Design Studio" />}
+          {view === 'studio-business'   && <ComingSoon label="Business Studio" />}
+          {view === 'studio-automation' && <ComingSoon label="Automation Studio" />}
+          {view === 'studio-science'    && <ComingSoon label="Science Studio" />}
+          {view === 'studio-gamedev'    && <ComingSoon label="Game Dev Studio" />}
+          {view === 'studio-voice'      && <ComingSoon label="Voice Studio" />}
+          {view === 'studio-universal'  && <ComingSoon label="Universal Studio" />}
+
+          {/* ── INTELLIGENCE ──────────────────────────────────── */}
+          {view === 'lab'        && <ComingSoon label="Prompt Lab" />}
+          {view === 'comparison' && <ComingSoon label="A/B Comparison" />}
+          {view === 'knowledge'  && <ComingSoon label="Knowledge Base" />}
+          {view === 'workflow'   && <ComingSoon label="Workflow Builder" />}
+          {view === 'analytics'  && <ComingSoon label="Analytics" />}
+
+          {/* ── AI CONTROL CENTER ─────────────────────────────── */}
+          {view === 'providers'    && <ComingSoon label="AI Providers" />}
+          {view === 'models'       && <ComingSoon label="Models" />}
+          {view === 'api-config'   && <ComingSoon label="API Keys" />}
+          {view === 'local-models' && <ComingSoon label="Local Models" />}
+          {view === 'usage'        && <ComingSoon label="Usage & Costs" />}
+
+          {/* ── SYSTEM ────────────────────────────────────────── */}
+          {view === 'settings'   && <ComingSoon label="Settings" />}
+          {view === 'appearance' && <ComingSoon label="Appearance" />}
+          {view === 'shortcuts'  && <ComingSoon label="Keyboard Shortcuts" />}
+          {view === 'security'   && <ComingSoon label="Security" />}
+          {view === 'docs'       && <ComingSoon label="Documentation" />}
         </main>
       </div>
 
-      {/* History sidebar — rendered outside app shell to overlay everything */}
+      {/* ── History overlay (legacy) ──────────────────────────── */}
       <HistorySidebar />
     </div>
   );
