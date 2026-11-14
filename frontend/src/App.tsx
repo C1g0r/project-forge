@@ -4,6 +4,7 @@ import { WorkspaceHeader } from './components/layout/WorkspaceHeader';
 
 // ── Pages ────────────────────────────────────────────────────────────────────
 import { CommandCenter } from './components/pages/CommandCenter';
+import { PromptBuilderPage } from './components/pages/PromptBuilderPage';
 
 // ── Legacy forge views ──────────────────────────────────────────────────────
 import { ModuleGrid } from './components/forge/ModuleGrid';
@@ -129,16 +130,16 @@ export default function App() {
         <main
           style={{
             flex: 1,
-            overflowY: 'auto',
-            overflowX: 'hidden',
+            overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
             backgroundColor: 'var(--background)',
+            minHeight: 0,
           }}
         >
           {/* ── WORKSPACE ─────────────────────────────────────── */}
           {view === 'home'      && <CommandCenter />}
-          {view === 'builder'   && <PromptBuilder />}
+          {view === 'builder'   && <PromptBuilderPage />}
           {view === 'output'    && <PromptOutput />}
           {view === 'canvas'    && <ComingSoon label="Canvas — Visual Prompt Graph" />}
           {view === 'projects'  && <ComingSoon label="Projects" />}
