@@ -3,6 +3,7 @@ import { Header } from './components/forge/Header';
 import { ModuleGrid } from './components/forge/ModuleGrid';
 import { PromptBuilder } from './components/forge/PromptBuilder';
 import { PromptOutput } from './components/forge/PromptOutput';
+import { HistorySidebar } from './components/forge/HistorySidebar';
 
 export default function App() {
   const { view } = usePromptStore();
@@ -47,6 +48,9 @@ export default function App() {
           {view === 'output' && <PromptOutput />}
         </main>
       </div>
+
+      {/* History sidebar — rendered outside app shell to overlay everything */}
+      <HistorySidebar />
     </div>
   );
 }

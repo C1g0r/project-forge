@@ -44,6 +44,12 @@ interface PromptStore {
   history: GeneratedPrompt[];
   addToHistory: (prompt: GeneratedPrompt) => void;
   clearHistory: () => void;
+  restoreFromHistory: (prompt: GeneratedPrompt) => void;
+
+  // History panel
+  showHistory: boolean;
+  setShowHistory: (val: boolean) => void;
+  toggleHistory: () => void;
 
   // Actions
   startBuild: () => BuildRequest | null;
@@ -90,6 +96,18 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
   addToHistory: (prompt) =>
     set((state) => ({ history: [prompt, ...state.history].slice(0, 50) })),
   clearHistory: () => set({ history: [] }),
+  restoreFromHistory: (prompt) =>
+    set({
+      generatedPrompt: prompt,
+      selectedModule: prompt.module as import('../types').ModuleId,
+      view: 'output',
+      showHistory: false,
+    }),
+
+  // History panel
+  showHistory: false,
+  setShowHistory: (val) => set({ showHistory: val }),
+  toggleHistory: () => set((state) => ({ showHistory: !state.showHistory })),
 
   // Actions
   startBuild: () => {

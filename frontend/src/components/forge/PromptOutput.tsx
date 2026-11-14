@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Copy, Check, RefreshCw, Star, ChevronDown, ChevronUp, BarChart2 } from 'lucide-react';
+import { Copy, Check, RefreshCw, Star, ChevronDown, ChevronUp, BarChart2, Download } from 'lucide-react';
 import { usePromptStore } from '../../store/usePromptStore';
 import { MODULES, AI_MODELS, BUILD_LEVELS } from '../../data/modules';
 
@@ -23,6 +23,27 @@ export function PromptOutput() {
   const handleNew = () => {
     resetParameters();
     setView('builder');
+  };
+
+  const handleDownload = () => {
+    const filename = `prompt_${generatedPrompt.module}_${generatedPrompt.level}_${Date.now()}.txt`;
+    const content = [
+      `PROMPT FORGE — Generated Prompt`,
+      `Module: ${generatedPrompt.module} | Level: ${generatedPrompt.level} | Model: ${generatedPrompt.targetModel}`,
+      `Quality Score: ${generatedPrompt.quality.score}/100`,
+      `Generated: ${new Date(generatedPrompt.createdAt).toLocaleString()}`,
+      ``,
+      `─── PROMPT ───────────────────────────────────────────────`,
+      ``,
+      generatedPrompt.prompt,
+    ].join('\n');
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const q = generatedPrompt.quality;
@@ -187,10 +208,18 @@ export function PromptOutput() {
         <div className="flex gap-3 pb-4">
           <button
             onClick={handleNew}
-            className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-white/[0.08] text-white/60 hover:text-white hover:border-white/20 transition-all text-sm font-medium"
+            className="flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl border border-white/[0.08] text-white/60 hover:text-white hover:border-white/20 transition-all text-sm font-medium"
           >
             <RefreshCw size={15} />
-            Novo Prompt
+            Novo
+          </button>
+          <button
+            onClick={handleDownload}
+            title="Descarregar como .txt"
+            className="flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl border border-white/[0.08] text-white/60 hover:text-white hover:border-white/20 transition-all text-sm font-medium"
+          >
+            <Download size={15} />
+            .txt
           </button>
           <button
             onClick={handleCopy}

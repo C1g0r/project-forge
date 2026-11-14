@@ -1,8 +1,8 @@
-import { Zap, ChevronLeft } from 'lucide-react';
+import { Zap, ChevronLeft, Clock } from 'lucide-react';
 import { usePromptStore } from '../../store/usePromptStore';
 
 export function Header() {
-  const { view, setView, reset } = usePromptStore();
+  const { view, setView, reset, toggleHistory, history } = usePromptStore();
 
   const handleBack = () => {
     if (view === 'output') setView('builder');
@@ -68,6 +68,22 @@ export function Header() {
 
       {/* Right */}
       <div className="flex items-center gap-2">
+        {/* History toggle */}
+        <button
+          onClick={toggleHistory}
+          title="Histórico de prompts"
+          className="relative p-2 rounded-lg text-white/40 hover:text-white/80 hover:bg-white/[0.06] transition-all"
+        >
+          <Clock size={16} />
+          {history.length > 0 && (
+            <span
+              className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center"
+              style={{ background: '#6366f1', color: '#fff' }}
+            >
+              {history.length > 9 ? '9+' : history.length}
+            </span>
+          )}
+        </button>
         <div className="px-2.5 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-medium">
           v2.0 BETA
         </div>
