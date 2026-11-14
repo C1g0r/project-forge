@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { usePromptStore } from './store/usePromptStore';
 import { Sidebar } from './components/layout/Sidebar';
 import { WorkspaceHeader } from './components/layout/WorkspaceHeader';
@@ -5,6 +6,12 @@ import { WorkspaceHeader } from './components/layout/WorkspaceHeader';
 // ── Pages ────────────────────────────────────────────────────────────────────
 import { CommandCenter } from './components/pages/CommandCenter';
 import { PromptBuilderPage } from './components/pages/PromptBuilderPage';
+import { LaboratoryPage } from './components/pages/LaboratoryPage';
+
+// React Flow is only needed on the Canvas — keep it out of the main bundle.
+const PromptCanvasPage = lazy(() =>
+  import('./components/pages/PromptCanvasPage').then((m) => ({ default: m.PromptCanvasPage })),
+);
 
 // ── Legacy forge views ──────────────────────────────────────────────────────
 import { ModuleGrid } from './components/forge/ModuleGrid';
@@ -141,7 +148,11 @@ export default function App() {
           {view === 'home'      && <CommandCenter />}
           {view === 'builder'   && <PromptBuilderPage />}
           {view === 'output'    && <PromptOutput />}
-          {view === 'canvas'    && <ComingSoon label="Canvas — Visual Prompt Graph" />}
+          {view === 'canvas'    && (
+            <Suspense fallback={<div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', fontSize: 13 }}>Loading canvas…</div>}>
+              <PromptCanvasPage />
+            </Suspense>
+          )}
           {view === 'projects'  && <ComingSoon label="Projects" />}
           {view === 'library'   && <ComingSoon label="Library" />}
           {view === 'favorites' && <ComingSoon label="Favorites" />}
@@ -161,7 +172,7 @@ export default function App() {
           {view === 'studio-universal'  && <ComingSoon label="Universal Studio" />}
 
           {/* ── INTELLIGENCE ──────────────────────────────────── */}
-          {view === 'lab'        && <ComingSoon label="Prompt Lab" />}
+          {view === 'lab'        && <LaboratoryPage />}
           {view === 'comparison' && <ComingSoon label="A/B Comparison" />}
           {view === 'knowledge'  && <ComingSoon label="Knowledge Base" />}
           {view === 'workflow'   && <ComingSoon label="Workflow Builder" />}

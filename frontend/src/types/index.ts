@@ -85,4 +85,44 @@ export interface BuildRequest {
   targetModel: string;
 }
 
-export type AppView = 'home' | 'builder' | 'output';
+export type AppView =
+  // ── Workspace ──────────────────────────────────────────────────
+  | 'home'           // Command Center (homepage)
+  | 'builder'        // Prompt Builder
+  | 'canvas'         // Prompt Canvas (React Flow)
+  | 'projects'       // Projects
+  | 'library'        // Prompt Library
+  | 'favorites'      // Favorites
+  // ── Studios ────────────────────────────────────────────────────
+  | 'studio-image'
+  | 'studio-video'
+  | 'studio-music'
+  | 'studio-text'
+  | 'studio-code'
+  | 'studio-3d'
+  | 'studio-business'
+  | 'studio-automation'
+  | 'studio-science'
+  | 'studio-gamedev'
+  | 'studio-voice'
+  | 'studio-universal'
+  // ── Intelligence ───────────────────────────────────────────────
+  | 'lab'
+  | 'comparison'
+  | 'knowledge'
+  | 'workflow'
+  | 'analytics'
+  // ── AI Control Center ──────────────────────────────────────────
+  | 'providers'
+  | 'models'
+  | 'api-config'
+  | 'local-models'
+  | 'usage'
+  // ── System ─────────────────────────────────────────────────────
+  | 'settings'
+  | 'appearance'
+  | 'shortcuts'
+  | 'security'
+  | 'docs'
+  // ── Special ────────────────────────────────────────────────────
+  | 'output';        // Generated prompt result

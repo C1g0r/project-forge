@@ -12,6 +12,15 @@ interface PromptStore {
   view: AppView;
   setView: (view: AppView) => void;
 
+  // Sidebar
+  sidebarExpanded: boolean;
+  setSidebarExpanded: (val: boolean) => void;
+  toggleSidebar: () => void;
+
+  // Prompt handed from one tool to another (e.g. Canvas → Laboratory)
+  labDraft: string | null;
+  setLabDraft: (text: string | null) => void;
+
   // Module selection
   selectedModule: ModuleId | null;
   selectedSubcategory: string;
@@ -60,6 +69,14 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
   // Navigation
   view: 'home',
   setView: (view) => set({ view }),
+
+  // Sidebar
+  sidebarExpanded: true,
+  setSidebarExpanded: (val) => set({ sidebarExpanded: val }),
+  toggleSidebar: () => set((state) => ({ sidebarExpanded: !state.sidebarExpanded })),
+
+  labDraft: null,
+  setLabDraft: (text) => set({ labDraft: text }),
 
   // Module selection
   selectedModule: null,

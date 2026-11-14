@@ -273,3 +273,45 @@ export async function reviewModules(
   const data = await res.json();
   return data.report as AIReviewReport;
 }
+
+// ── PROMPT LABORATORY — optimization (real model call, never simulated) ──────
+
+export interface OptimizeChange {
+  type: "added" | "removed" | "restructured" | "clarified";
+  description: string;
+}
+
+export interface OptimizeResult {
+  optimized: string;
+  changes: OptimizeChange[];
+  model: string;
+  latencyMs: number;
+}
+
+export async function optimizePrompt(
+  prompt: string,
+  targetModel: string,
+  goal: string,
+  signal?: AbortSignal
+): Promise<OptimizeResult> {
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/prompt/optimize`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, targetModel, goal }),
+      signal: signal ?? AbortSignal.timeout(120000),
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
+    throw new Error("Could not reach the AI backend. Check that it is running and reachable.");
+  }
+  if (!res.ok) {
+    let detail = "";
+    try { const j = await res.json(); detail = j.detail || j.error || ""; } catch { /* ignore */ }
+    if (res.status === 404) throw new Error("The running backend does not have the optimization endpoint yet. Update and restart it.");
+    if (res.status === 429) throw new Error("The AI model quota is exhausted. Try again in a few minutes.");
+    throw new Error(detail || `Error ${res.status} while optimizing.`);
+  }
+  return res.json();
+}
