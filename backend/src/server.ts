@@ -11,7 +11,14 @@ process.on("unhandledRejection", (reason) => {
 import cors from "cors";
 import fs from "fs";
 import path from "path";
-import { llm, MODEL, MODEL_FAST } from "./lib/llm.ts";
+import { llm, localClient, MODEL, MODEL_FAST } from "./lib/llm.ts";
+
+// Provider activo (calculado uma vez no arranque)
+const ACTIVE_PROVIDER: "local" | "coarena" | "groq" = process.env.LOCAL_LLM_URL
+  ? "local"
+  : process.env.ANTHROPIC_BASE_URL
+  ? "coarena"
+  : "groq";
 import { analyzeDocument } from "./pipeline/analyzer.ts";
 import { buildBlueprint } from "./pipeline/architect.ts";
 import { writeChapter } from "./pipeline/writer.ts";
@@ -105,12 +112,26 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true, ts: Date.now() });
 });
 
-// ── DIAGNOSTIC: lista modelos disponíveis no Groq ───────────────────────────
+// ── STATUS: provider activo + modelo ────────────────────────────────────────
+app.get("/api/status", (_req, res) => {
+  res.json({
+    provider: ACTIVE_PROVIDER,
+    model: MODEL,
+    model_fast: MODEL_FAST,
+    local_url: process.env.LOCAL_LLM_URL || null,
+    max_tokens: process.env.LOCAL_LLM_MAX_TOKENS || null,
+    offline: ACTIVE_PROVIDER === "local",
+  });
+});
+
+// ── DIAGNOSTIC: lista modelos disponíveis ────────────────────────────────────
 app.get("/api/models", async (_req, res) => {
   try {
-    const response = await llm.models.list();
+    // Em modo local, pergunta ao llama.cpp; em modo cloud, pergunta ao Groq
+    const client = ACTIVE_PROVIDER === "local" ? localClient : llm;
+    const response = await client.models.list();
     const models = response.data.map((m) => ({ id: m.id, created: (m as { created?: number }).created }));
-    res.json({ models, current: { MODEL, MODEL_FAST } });
+    res.json({ models, current: { MODEL, MODEL_FAST }, provider: ACTIVE_PROVIDER });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("models list error:", msg);
