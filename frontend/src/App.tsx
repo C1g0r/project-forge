@@ -210,6 +210,13 @@ export default function App() {
           {showExport ? <ExportPanel /> : <ModuleEditor />}
         </main>
       </div>
+
+      {/* Footer */}
+      <footer className="shrink-0 h-8 border-t border-zinc-800/60 flex items-center justify-center px-4">
+        <span className="text-zinc-700 text-[11px] font-mono select-none">
+          © 2026 C1g0r — All rights reserved
+        </span>
+      </footer>
     </div>
   );
 }
